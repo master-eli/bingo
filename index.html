@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal QR Bingo</title>
+    <title>Responsive Multi-Column Bingo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,12 +12,28 @@
         
         .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
         
-        .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        /* RESPONSIVE GRID LOGIC */
+        .cards-container { 
+            display: grid; 
+            /* Default: 2 columns for mobile */
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 12px; 
+        }
 
-        .bingo-card { background: white; padding: 6px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        .winner { border: 3px solid var(--win-gold); }
+        /* Tablets (iPad) - 4 columns */
+        @media (min-width: 768px) {
+            .cards-container { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        /* Desktop - 6 columns */
+        @media (min-width: 1200px) {
+            .cards-container { grid-template-columns: repeat(6, 1fr); }
+        }
+
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; height: fit-content; }
+        .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; }
         
-        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
+        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; text-transform: uppercase; }
         .winner .bingo-badge { display: block; }
         
         .grid-wrapper { position: relative; width: 100%; }
@@ -26,16 +42,14 @@
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
         .winner .strike-svg { display: block; }
 
-        .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 2px 0; color: var(--primary); }
+        .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
         
-        /* Fixed Cell & Input Layout */
-        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: 0.9rem; overflow: hidden; }
+        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.7rem, 2vw, 1rem); overflow: hidden; }
         
         .cell input { 
             width: 100%; height: 100%; border: none; text-align: center; 
             font-weight: bold; outline: none; background: transparent; 
-            font-size: 0.9rem; appearance: textfield; -moz-appearance: textfield;
-            padding: 0; margin: 0; position: absolute; top: 0; left: 0;
+            font-size: inherit; appearance: textfield; padding: 0; margin: 0; position: absolute; top: 0; left: 0;
         }
         .cell input::-webkit-outer-spin-button, .cell input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
@@ -45,16 +59,16 @@
         .locked .cell.marked { background: var(--success); color: white; }
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 50%; }
 
-        button { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-add { background: var(--success); color: white; width: 100%; margin-bottom: 10px; }
-        .btn-scan { background: var(--primary); color: white; width: 100%; margin-top: 5px; font-size: 0.8rem; }
-        .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 2px 5px; }
+        button { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: var(--success); color: white; width: 200px; max-width: 100%; margin-bottom: 10px; }
+        .btn-scan { background: var(--primary); color: white; width: 200px; max-width: 100%; margin-top: 5px; }
+        .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 2px 5px; color: #333; border: 1px solid #ccc; }
         .btn-del { background: var(--danger); color: white; font-size: 0.6rem; padding: 2px 5px; }
         
         #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
-        #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
+        #reader { width: 300px; max-width: 90%; background: white; border-radius: 8px; overflow: hidden; }
 
-        .admin-section { margin-top: 50px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
+        .admin-section { margin-top: 80px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
         .admin-keys { display: none; background: #222; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; }
         .qr-holder { display: inline-block; background: white; padding: 15px; border-radius: 10px; margin: 10px; }
     </style>
@@ -63,16 +77,16 @@
 
 <div id="scanner-container">
     <div id="reader"></div>
-    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Cancel Scanner</button>
+    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Close Scanner</button>
 </div>
 
 <div class="controls-top">
     <div id="editButtons">
-        <button class="btn-add" onclick="addCard()">+ Add Card</button>
+        <button class="btn-add" onclick="addCard()">+ Add Card</button><br>
         <button class="btn-scan" onclick="startScanner()">📷 SCAN TO LOCK</button>
     </div>
     <div id="lockButtons" style="display:none;">
-        <div style="color: var(--danger); font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">🔒 PLAYING</div>
+        <div style="color: var(--danger); font-weight: bold; margin-bottom: 5px;">🔒 PLAYING MODE</div>
         <button class="btn-scan" style="background: #6c757d;" onclick="startScanner()">📷 SCAN TO UNLOCK</button>
     </div>
 </div>
@@ -80,25 +94,24 @@
 <div class="cards-container" id="cardsContainer"></div>
 
 <div class="admin-section">
-    <button id="adminToggle" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Access</button>
+    <button id="adminToggle" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Panel</button>
     <div id="adminPanel" class="admin-keys">
-        <h4>TOGGLE QR KEY</h4>
-        <p style="font-size:0.7rem; color:#aaa;">Scan once to LOCK, Scan again to UNLOCK</p>
+        <h4>UNIVERSAL TOGGLE KEY</h4>
         <div id="universalQR" class="qr-holder"></div>
-        <br>
-        <button onclick="closeAdmin()" style="background: #444; color: white;">Hide</button>
+        <p style="font-size:0.8rem;">Scanning this flips between LOCK and UNLOCK</p>
+        <button onclick="closeAdmin()" style="background: #444; color: white; margin-top: 10px;">Hide</button>
     </div>
 </div>
 
 <script>
     const ADMIN_PASS = "SuperAdmin";
-    const TOGGLE_SECRET = "BINGO_ACTION_TOGGLE_2026"; // One secret for both
+    const TOGGLE_SECRET = "BINGO_ACTION_TOGGLE_2026";
 
-    let cards = JSON.parse(localStorage.getItem('bingo_uni_v1')) || [];
+    let cards = JSON.parse(localStorage.getItem('bingo_resp_v1')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
     let html5QrCode;
 
-    function save() { localStorage.setItem('bingo_uni_v1', JSON.stringify(cards)); }
+    function save() { localStorage.setItem('bingo_resp_v1', JSON.stringify(cards)); }
 
     function setLockState(state) {
         isLocked = state;
@@ -141,7 +154,7 @@
 
         cards.forEach((card) => {
             const cardEl = document.createElement('div');
-            cardEl.className = `bingo-card ${isLocked ? 'locked' : ''} ${card.winPattern ? 'winner' : ''}`;
+            cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''}`;
             
             const header = document.createElement('div');
             if (isLocked) {
@@ -161,7 +174,7 @@
                 const c = PATTERN_COORDS[card.winPattern];
                 const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
-                l.setAttribute("stroke", "rgba(231, 76, 60, 0.7)"); l.setAttribute("stroke-width", "4"); l.setAttribute("stroke-linecap", "round");
+                l.setAttribute("stroke", "rgba(231, 76, 60, 0.8)"); l.setAttribute("stroke-width", "4"); l.setAttribute("stroke-linecap", "round");
                 svg.appendChild(l);
             }
             gridWrapper.appendChild(svg);
@@ -197,7 +210,7 @@
     }
 
     function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null }); save(); render(); }
-    function deleteCard(id) { if(confirm("Delete?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
+    function deleteCard(id) { if(confirm("Delete Card?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
     function autoFill(id) {
         const card = cards.find(c => c.id === id);
         const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
@@ -211,14 +224,14 @@
     function closeAdmin() { document.getElementById('adminPanel').style.display='none'; }
     function generateQRs() {
         document.getElementById("universalQR").innerHTML = "";
-        new QRCode(document.getElementById("universalQR"), { text: TOGGLE_SECRET, width: 200, height: 200 });
+        new QRCode(document.getElementById("universalQR"), { text: TOGGLE_SECRET, width: 220, height: 220 });
     }
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 220 }, (text) => {
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
             if (text === TOGGLE_SECRET) {
-                setLockState(!isLocked); // FLIPS the state
+                setLockState(!isLocked);
                 stopScanner();
             }
         }).catch(err => console.error(err));
