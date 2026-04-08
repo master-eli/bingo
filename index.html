@@ -3,41 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2-Column Bingo Verify</title>
+    <title>Pattern-Strike Bingo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --border: #ced4da; --win-gold: #f1c40f; }
+        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --border: #ced4da; --win-gold: #f1c40f; --strike: rgba(231, 76, 60, 0.6); }
         body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 10px; padding-bottom: 80px; }
         
         .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
         
-        /* UPDATED: Force 2 cards per row on mobile */
-        .cards-container { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 10px; 
-        }
-        
-        /* On very small screens, keep it 2 columns but shrink padding */
-        @media (max-width: 400px) {
-            .cards-container { gap: 6px; }
-            .bingo-card { padding: 5px; }
-        }
+        .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
-        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; display: flex; flex-direction: column; }
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .bingo-card.winner { border: 3px solid var(--win-gold); }
         
-        .bingo-card.winner { border: 3px solid var(--win-gold); box-shadow: 0 0 10px rgba(241, 196, 15, 0.6); }
-        
-        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.9rem; letter-spacing: 1px; animation: flash 1s infinite; }
+        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.9rem; letter-spacing: 1px; }
         .winner .bingo-badge { display: block; }
         
-        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        .grid-wrapper { position: relative; }
+        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; position: relative; }
+        
+        /* Strike Line Overlay */
+        .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
+        .winner .strike-svg { display: block; }
 
-        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 2px 0; color: var(--primary); }
         .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: 0.85rem; }
-        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; padding: 0; font-size: 0.85rem; background: transparent; }
+        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: 0.85rem; }
         .free-slot { background: #fff9db; font-size: 0.5rem; color: #f08c00; text-align: center; line-height: 1; }
 
         .locked .cell { cursor: pointer; user-select: none; }
@@ -45,9 +37,9 @@
         .locked .cell.marked::after { content: ""; position: absolute; width: 75%; height: 75%; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 50%; }
 
         button { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-add { background: var(--success); color: white; width: 100%; margin-bottom: 10px; font-size: 1rem; }
-        .btn-scan { background: var(--primary); color: white; width: 100%; margin-top: 5px; font-size: 0.85rem; }
-        .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 3px 6px; color: #333; }
+        .btn-add { background: var(--success); color: white; width: 100%; margin-bottom: 10px; }
+        .btn-scan { background: var(--primary); color: white; width: 100%; margin-top: 5px; font-size: 0.8rem; }
+        .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 3px 6px; }
         .btn-del { background: var(--danger); color: white; font-size: 0.6rem; padding: 3px 6px; }
         
         #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
@@ -83,8 +75,7 @@
     <div id="adminPanel" class="admin-keys">
         <div id="lockQR" class="qr-holder"></div>
         <div id="unlockQR" class="qr-holder"></div>
-        <br>
-        <button onclick="closeAdmin()" style="background: #444; color: white; margin-top: 10px;">Hide</button>
+        <br><button onclick="closeAdmin()" style="background: #444; color: white; margin-top: 10px;">Hide</button>
     </div>
 </div>
 
@@ -93,31 +84,39 @@
     const LOCK_SECRET = "ACTION_LOCK_2026";
     const UNLOCK_SECRET = "ACTION_UNLOCK_ADMIN";
 
-    let cards = JSON.parse(localStorage.getItem('bingo_verify_v2')) || [];
+    let cards = JSON.parse(localStorage.getItem('bingo_strike_v1')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
     let html5QrCode;
 
-    function save() { localStorage.setItem('bingo_verify_v2', JSON.stringify(cards)); }
+    function save() { localStorage.setItem('bingo_strike_v1', JSON.stringify(cards)); }
 
     function setLockState(state) {
         isLocked = state;
         localStorage.setItem('bingo_lock_state', state);
-        if (!state) {
-            cards.forEach(card => { card.marks = []; card.hasWon = false; });
-            save();
-        }
+        if (!state) { cards.forEach(card => { card.marks = []; card.winPattern = null; }); save(); }
         render();
     }
+
+    // Pattern coordinates for the strike line [x1, y1, x2, y2] in %
+    const PATTERN_COORDS = {
+        // Rows
+        'r0': [5, 10, 95, 10], 'r1': [5, 30, 95, 30], 'r2': [5, 50, 95, 50], 'r3': [5, 70, 95, 70], 'r4': [5, 90, 95, 90],
+        // Cols
+        'c0': [10, 5, 10, 95], 'c1': [30, 5, 30, 95], 'c2': [50, 5, 50, 95], 'c3': [70, 5, 70, 95], 'c4': [90, 5, 90, 95],
+        // Diagonals
+        'd1': [5, 5, 95, 95], 'd2': [95, 5, 5, 95]
+    };
 
     function checkWin(card) {
         const marks = new Set(card.marks);
         marks.add(12);
-        const winPatterns = [
-            [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24],
-            [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24],
-            [0,6,12,18,24], [4,8,12,16,20]
+        const patterns = [
+            {id: 'r0', p: [0,1,2,3,4]}, {id: 'r1', p: [5,6,7,8,9]}, {id: 'r2', p: [10,11,12,13,14]}, {id: 'r3', p: [15,16,17,18,19]}, {id: 'r4', p: [20,21,22,23,24]},
+            {id: 'c0', p: [0,5,10,15,20]}, {id: 'c1', p: [1,6,11,16,21]}, {id: 'c2', p: [2,7,12,17,22]}, {id: 'c3', p: [3,8,13,18,23]}, {id: 'c4', p: [4,9,14,19,24]},
+            {id: 'd1', p: [0,6,12,18,24]}, {id: 'd2', p: [4,8,12,16,20]}
         ];
-        return winPatterns.some(pattern => pattern.every(idx => marks.has(idx)));
+        const winningPattern = patterns.find(pat => pat.p.every(idx => marks.has(idx)));
+        return winningPattern ? winningPattern.id : null;
     }
 
     function toggleMark(cardId, cellIndex) {
@@ -128,37 +127,52 @@
         } else {
             card.marks.push(cellIndex);
         }
-        card.hasWon = checkWin(card);
-        save();
-        render();
+        card.winPattern = checkWin(card);
+        save(); render();
     }
 
     function render() {
         const container = document.getElementById('cardsContainer');
         document.getElementById('editButtons').style.display = isLocked ? 'none' : 'block';
         document.getElementById('lockButtons').style.display = isLocked ? 'block' : 'none';
-        
         container.innerHTML = '';
+
         cards.forEach((card) => {
             const cardEl = document.createElement('div');
-            cardEl.className = `bingo-card ${isLocked ? 'locked' : ''} ${card.hasWon ? 'winner' : ''}`;
+            cardEl.className = `bingo-card ${isLocked ? 'locked' : ''} ${card.winPattern ? 'winner' : ''}`;
             
             const header = document.createElement('div');
             if (isLocked) {
-                header.innerHTML = `<div class="bingo-badge">BINGO!</div>
-                                    <div style="font-size:0.5rem; color:#999; text-align:center; margin-bottom:2px;">ID:${card.id.toString().slice(-4)}</div>`;
+                header.innerHTML = `<div class="bingo-badge">BINGO!</div><div style="font-size:0.5rem; color:#999; text-align:center;">ID:${card.id.toString().slice(-4)}</div>`;
             } else {
                 header.style = 'display:flex; justify-content:space-between; margin-bottom:5px;';
-                header.innerHTML = `<button class="btn-shuf" onclick="autoFill(${card.id})">AUTO</button>
-                                    <button class="btn-del" onclick="deleteCard(${card.id})">✕</button>`;
+                header.innerHTML = `<button class="btn-shuf" onclick="autoFill(${card.id})">AUTO</button><button class="btn-del" onclick="deleteCard(${card.id})">✕</button>`;
             }
             cardEl.appendChild(header);
+
+            const gridWrapper = document.createElement('div');
+            gridWrapper.className = 'grid-wrapper';
+
+            // Strike Line SVG
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("class", "strike-svg");
+            svg.setAttribute("viewBox", "0 0 100 100");
+            if (card.winPattern) {
+                const coords = PATTERN_COORDS[card.winPattern];
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", coords[0]); line.setAttribute("y1", coords[1]);
+                line.setAttribute("x2", coords[2]); line.setAttribute("y2", coords[3]);
+                line.setAttribute("stroke", "rgba(231, 76, 60, 0.7)");
+                line.setAttribute("stroke-width", "3");
+                line.setAttribute("stroke-linecap", "round");
+                svg.appendChild(line);
+            }
+            gridWrapper.appendChild(svg);
 
             const gridEl = document.createElement('div');
             gridEl.className = 'bingo-grid';
             ['B','I','N','G','O'].forEach(l => {
-                const h = document.createElement('div');
-                h.className = 'letter-header'; h.innerText = l;
+                const h = document.createElement('div'); h.className = 'letter-header'; h.innerText = l;
                 gridEl.appendChild(h);
             });
 
@@ -170,8 +184,7 @@
                     if (isLocked && card.marks.length > 0) cell.classList.add('marked'); 
                 } else if (!isLocked) {
                     const input = document.createElement('input');
-                    input.type = "number";
-                    input.value = val;
+                    input.type = "number"; input.value = val;
                     input.oninput = (e) => { card.data[i] = e.target.value; save(); };
                     cell.appendChild(input);
                 } else {
@@ -181,26 +194,24 @@
                 }
                 gridEl.appendChild(cell);
             });
-            cardEl.appendChild(gridEl);
+            gridWrapper.appendChild(gridEl);
+            cardEl.appendChild(gridWrapper);
             container.appendChild(cardEl);
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], hasWon: false }); save(); render(); }
-    function deleteCard(id) { if(confirm("Delete Card?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
+    // Tools & Scanner
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null }); save(); render(); }
+    function deleteCard(id) { if(confirm("Delete?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
     function autoFill(id) {
         const card = cards.find(c => c.id === id);
         const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
         for (let col = 0; col < 5; col++) {
             let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]).sort(() => Math.random() - 0.5);
-            for (let row = 0; row < 5; row++) {
-                if (row === 2 && col === 2) continue;
-                card.data[row * 5 + col] = pool[row];
-            }
+            for (let row = 0; row < 5; row++) { if (row === 2 && col === 2) continue; card.data[row * 5 + col] = pool[row]; }
         }
         save(); render();
     }
-
     function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display='block'; generateQRs(); } }
     function closeAdmin() { document.getElementById('adminPanel').style.display='none'; }
     function generateQRs() {
