@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera-Scan Bingo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --border: #ced4da; }
+        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 10px; padding-bottom: 80px; }
+        
+        .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
+        
+        .cards-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; }
+        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; background: #444; border: 1px solid #444; }
+        .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.75rem; padding: 3px 0; color: var(--primary); }
+        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: 0.9rem; }
+        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; padding: 0; font-size: 0.9rem; }
+        .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; }
+
+        .locked .cell { cursor: pointer; }
+        .locked .cell.marked { background: var(--success); color: white; }
+        .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
+
+        button { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: var(--success); color: white; width: 100%; margin-bottom: 10px; }
+        .btn-scan { background: var(--primary); color: white; width: 100%; margin-top: 5px; }
+        .btn-shuf { background: #e9ecef; font-size: 0.6rem; }
+        
+        /* Scanner Overlay */
+        #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+        #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
+
+        .admin-section { margin-top: 50px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
+        .admin-keys { display: none; background: #333; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; }
+        .qr-holder { display: inline-block; background: white; padding: 10px; margin: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="scanner-container">
+    <div id="reader"></div>
+    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Cancel Scan</button>
+</div>
+
+<div class="controls-top">
+    <div id="editButtons">
+        <button class="btn-add" onclick="addCard()">+ Add New Card</button>
+        <button class="btn-scan" onclick="startScanner()">📷 SCAN ADMIN QR TO LOCK</button>
+    </div>
+    <div id="lockButtons" class="hidden" style="display:none;">
+        <div style="color: var(--danger); font-weight: bold; margin-bottom: 5px;">🔒 CARDS LOCKED</div>
+        <button class="btn-scan" style="background: #6c757d;" onclick="startScanner()">📷 SCAN ADMIN QR TO UNLOCK</button>
+    </div>
+</div>
+
+<div class="cards-container" id="cardsContainer"></div>
+
+<div class="admin-section">
+    <button id="adminToggle" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Access</button>
+    
+    <div id="adminPanel" class="admin-keys">
+        <h3>Admin Control Keys</h3>
+        <div style="display: flex; justify-content: center; flex-wrap: wrap;">
+            <div><div id="lockQR" class="qr-holder"></div><p>LOCK KEY</p></div>
+            <div><div id="unlockQR" class="qr-holder"></div><p>UNLOCK KEY</p></div>
+        </div>
+        <button onclick="closeAdmin()" style="background: var(--danger); color: white;">Hide Admin Keys</button>
+    </div>
+</div>
+
+<script>
+    const ADMIN_PASS = "SuperAdmin";
+    const LOCK_SECRET = "ACTION_LOCK_2026";
+    const UNLOCK_SECRET = "ACTION_UNLOCK_ADMIN";
+
+    let cards = JSON.parse(localStorage.getItem('bingo_cam_v1')) || [];
+    let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
+    let html5QrCode;
+
+    // --- SCANNER LOGIC ---
+    function startScanner() {
+        document.getElementById('scanner-container').style.display = 'flex';
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+            if (decodedText === LOCK_SECRET) {
+                setLockState(true);
+                stopScanner();
+                alert("Cards Locked! Good luck.");
+            } else if (decodedText === UNLOCK_SECRET) {
+                setLockState(false);
+                stopScanner();
+                alert("Cards Unlocked.");
+            }
+        });
+    }
+
+    function stopScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('scanner-container').style.display = 'none';
+            });
+        }
+    }
+
+    function setLockState(state) {
+        isLocked = state;
+        localStorage.setItem('bingo_lock_state', state);
+        render();
+    }
+
+    // --- ADMIN LOGIC ---
+    function openAdmin() {
+        if (prompt("Admin Password:") === ADMIN_PASS) {
+            document.getElementById('adminPanel').style.display = 'block';
+            document.getElementById('adminToggle').style.display = 'none';
+            generateQRs();
+        }
+    }
+
+    function closeAdmin() {
+        document.getElementById('adminPanel').style.display = 'none';
+        document.getElementById('adminToggle').style.display = 'block';
+    }
+
+    function generateQRs() {
+        document.getElementById("lockQR").innerHTML = "";
+        document.getElementById("unlockQR").innerHTML = "";
+        new QRCode(document.getElementById("lockQR"), { text: LOCK_SECRET, width: 120, height: 120 });
+        new QRCode(document.getElementById("unlockQR"), { text: UNLOCK_SECRET, width: 120, height: 120 });
+    }
+
+    // --- BINGO LOGIC ---
+    function save() { localStorage.setItem('bingo_cam_v1', JSON.stringify(cards)); }
+
+    function addCard() {
+        if(isLocked) return;
+        cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [] });
+        save(); render();
+    }
+
+    function autoFill(id) {
+        const card = cards.find(c => c.id === id);
+        const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+        for (let col = 0; col < 5; col++) {
+            let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]).sort(() => Math.random() - 0.5);
+            for (let row = 0; row < 5; row++) {
+                if (row === 2 && col === 2) continue;
+                card.data[row * 5 + col] = pool[row];
+            }
+        }
+        save(); render();
+    }
+
+    function render() {
+        const container = document.getElementById('cardsContainer');
+        document.getElementById('editButtons').style.display = isLocked ? 'none' : 'block';
+        document.getElementById('lockButtons').style.display = isLocked ? 'block' : 'none';
+        
+        container.innerHTML = '';
+        cards.forEach((card) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = `bingo-card ${isLocked ? 'locked' : ''}`;
+            
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.innerHTML = `<span style="font-size:0.6rem; color:#ccc;">ID:${card.id.toString().slice(-4)}</span>`;
+            
+            if(!isLocked) {
+                const shuf = document.createElement('button');
+                shuf.className = 'btn-shuf'; shuf.innerText = 'AUTO-FILL';
+                shuf.onclick = () => autoFill(card.id);
+                header.appendChild(shuf);
+            }
+            cardEl.appendChild(header);
+
+            const gridEl = document.createElement('div');
+            gridEl.className = 'bingo-grid';
+            ['B','I','N','G','O'].forEach(l => {
+                const h = document.createElement('div');
+                h.className = 'letter-header'; h.innerText = l;
+                gridEl.appendChild(h);
+            });
+
+            card.data.forEach((val, i) => {
+                const cell = document.createElement('div');
+                cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
+                if (i === 12) {
+                    cell.innerText = "FREE";
+                } else if (!isLocked) {
+                    const input = document.createElement('input');
+                    input.type = "number";
+                    input.value = val;
+                    input.oninput = (e) => { card.data[i] = e.target.value; save(); };
+                    cell.appendChild(input);
+                } else {
+                    cell.innerText = val;
+                    if (card.marks.includes(i)) cell.classList.add('marked');
+                    cell.onclick = () => {
+                        if (card.marks.includes(i)) card.marks = card.marks.filter(m => m !== i);
+                        else card.marks.push(i);
+                        save(); render();
+                    };
+                }
+                gridEl.appendChild(cell);
+            });
+            cardEl.appendChild(gridEl);
+            container.appendChild(cardEl);
+        });
+    }
+
+    if(cards.length === 0) addCard();
+    render();
+</script>
+</body>
+</html>
