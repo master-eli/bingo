@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Responsive Multi-Column Bingo</title>
+    <title>Fixed Mark Bingo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,56 +12,53 @@
         
         .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
         
-        /* RESPONSIVE GRID LOGIC */
-        .cards-container { 
-            display: grid; 
-            /* Default: 2 columns for mobile */
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 12px; 
-        }
+        .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        @media (min-width: 768px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1200px) { .cards-container { grid-template-columns: repeat(6, 1fr); } }
 
-        /* Tablets (iPad) - 4 columns */
-        @media (min-width: 768px) {
-            .cards-container { grid-template-columns: repeat(4, 1fr); }
-        }
-
-        /* Desktop - 6 columns */
-        @media (min-width: 1200px) {
-            .cards-container { grid-template-columns: repeat(6, 1fr); }
-        }
-
-        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; height: fit-content; }
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; }
         
-        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; text-transform: uppercase; }
+        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
         .winner .bingo-badge { display: block; }
         
         .grid-wrapper { position: relative; width: 100%; }
-        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; width: 100%; box-sizing: border-box; }
+        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; width: 100%; }
         
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
         .winner .strike-svg { display: block; }
 
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
         
-        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.7rem, 2vw, 1rem); overflow: hidden; }
+        .cell { 
+            aspect-ratio: 1/1; background: white; display: flex; 
+            align-items: center; justify-content: center; position: relative; 
+            font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); 
+            overflow: hidden; touch-action: manipulation; 
+        }
         
         .cell input { 
             width: 100%; height: 100%; border: none; text-align: center; 
             font-weight: bold; outline: none; background: transparent; 
-            font-size: inherit; appearance: textfield; padding: 0; margin: 0; position: absolute; top: 0; left: 0;
+            font-size: inherit; appearance: textfield; padding: 0; margin: 0;
         }
-        .cell input::-webkit-outer-spin-button, .cell input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-        .free-slot { background: #fff9db; font-size: 0.5rem; color: #f08c00; text-align: center; line-height: 1; font-weight: 900; }
+        .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; line-height: 1; font-weight: 900; }
 
-        .locked .cell { cursor: pointer; user-select: none; }
-        .locked .cell.marked { background: var(--success); color: white; }
-        .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 50%; }
+        /* HIGHLIGHTER FIX: Added !important and higher specificity */
+        .locked .cell.marked { 
+            background-color: var(--success) !important; 
+            color: white !important; 
+        }
+        .locked .cell.marked::after { 
+            content: ""; position: absolute; width: 70%; height: 70%; 
+            border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; 
+            pointer-events: none;
+        }
 
         button { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-add { background: var(--success); color: white; width: 200px; max-width: 100%; margin-bottom: 10px; }
-        .btn-scan { background: var(--primary); color: white; width: 200px; max-width: 100%; margin-top: 5px; }
+        .btn-add { background: var(--success); color: white; width: 180px; margin-bottom: 10px; }
+        .btn-scan { background: var(--primary); color: white; width: 180px; margin-top: 5px; }
         .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 2px 5px; color: #333; border: 1px solid #ccc; }
         .btn-del { background: var(--danger); color: white; font-size: 0.6rem; padding: 2px 5px; }
         
@@ -98,8 +95,8 @@
     <div id="adminPanel" class="admin-keys">
         <h4>UNIVERSAL TOGGLE KEY</h4>
         <div id="universalQR" class="qr-holder"></div>
-        <p style="font-size:0.8rem;">Scanning this flips between LOCK and UNLOCK</p>
-        <button onclick="closeAdmin()" style="background: #444; color: white; margin-top: 10px;">Hide</button>
+        <p style="font-size:0.8rem;">Flip between LOCK and UNLOCK</p>
+        <button onclick="closeAdmin()" style="background: #444; color: white;">Hide</button>
     </div>
 </div>
 
@@ -107,16 +104,17 @@
     const ADMIN_PASS = "SuperAdmin";
     const TOGGLE_SECRET = "BINGO_ACTION_TOGGLE_2026";
 
-    let cards = JSON.parse(localStorage.getItem('bingo_resp_v1')) || [];
+    let cards = JSON.parse(localStorage.getItem('bingo_final_v1')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
     let html5QrCode;
 
-    function save() { localStorage.setItem('bingo_resp_v1', JSON.stringify(cards)); }
+    function save() { localStorage.setItem('bingo_final_v1', JSON.stringify(cards)); }
 
     function setLockState(state) {
         isLocked = state;
         localStorage.setItem('bingo_lock_state', state);
-        if (!state) { cards.forEach(card => { card.marks = []; card.winPattern = null; }); save(); }
+        if (!state) { cards.forEach(card => { card.marks = []; card.winPattern = null; }); }
+        save();
         render();
     }
 
@@ -140,10 +138,14 @@
     function toggleMark(cardId, cellIndex) {
         if (!isLocked) return;
         const card = cards.find(c => c.id === cardId);
-        if (card.marks.includes(cellIndex)) card.marks = card.marks.filter(m => m !== cellIndex);
-        else card.marks.push(cellIndex);
+        if (card.marks.includes(cellIndex)) {
+            card.marks = card.marks.filter(m => m !== cellIndex);
+        } else {
+            card.marks.push(cellIndex);
+        }
         card.winPattern = checkWin(card);
-        save(); render();
+        save();
+        render(); // Re-render to show updated colors
     }
 
     function render() {
@@ -154,7 +156,7 @@
 
         cards.forEach((card) => {
             const cardEl = document.createElement('div');
-            cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''}`;
+            cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''}`;
             
             const header = document.createElement('div');
             if (isLocked) {
@@ -188,9 +190,14 @@
             card.data.forEach((val, i) => {
                 const cell = document.createElement('div');
                 cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
+                
+                // State check for marked class
+                if (isLocked && (card.marks.includes(i) || (i === 12 && card.marks.length > 0))) {
+                    cell.classList.add('marked');
+                }
+
                 if (i === 12) {
                     cell.innerText = "FREE";
-                    if (isLocked && card.marks.length > 0) cell.classList.add('marked'); 
                 } else if (!isLocked) {
                     const input = document.createElement('input');
                     input.type = "number"; input.value = val;
@@ -198,9 +205,12 @@
                     cell.appendChild(input);
                 } else {
                     cell.innerText = val;
-                    if (card.marks.includes(i)) cell.classList.add('marked');
+                }
+                
+                if (isLocked) {
                     cell.onclick = () => toggleMark(card.id, i);
                 }
+                
                 gridEl.appendChild(cell);
             });
             gridWrapper.appendChild(gridEl);
@@ -230,11 +240,8 @@
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
-            if (text === TOGGLE_SECRET) {
-                setLockState(!isLocked);
-                stopScanner();
-            }
-        }).catch(err => console.error(err));
+            if (text === TOGGLE_SECRET) { setLockState(!isLocked); stopScanner(); }
+        }).catch(err => alert("Camera Error: " + err));
     }
     function stopScanner() { if(html5QrCode) html5QrCode.stop().then(()=>document.getElementById('scanner-container').style.display='none'); }
 
