@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fixed Mark Bingo</title>
+    <title>Centered Admin Bingo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --border: #ced4da; --win-gold: #f1c40f; }
+        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --border: #ced4da; --win-gold: #f1c40f; }
         body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 10px; padding-bottom: 80px; }
         
         .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
         
         .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         @media (min-width: 768px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
-        @media (min-width: 1200px) { .cards-container { grid-template-columns: repeat(6, 1fr); } }
 
-        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; }
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
         
         .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
         .winner .bingo-badge { display: block; }
@@ -29,45 +28,71 @@
         .winner .strike-svg { display: block; }
 
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
+        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); overflow: hidden; touch-action: manipulation; }
         
-        .cell { 
-            aspect-ratio: 1/1; background: white; display: flex; 
-            align-items: center; justify-content: center; position: relative; 
-            font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); 
-            overflow: hidden; touch-action: manipulation; 
-        }
-        
-        .cell input { 
-            width: 100%; height: 100%; border: none; text-align: center; 
-            font-weight: bold; outline: none; background: transparent; 
-            font-size: inherit; appearance: textfield; padding: 0; margin: 0;
+        .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
+        .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
+
+        .locked .cell.near-win:not(.marked) { color: var(--warning); }
+        .locked .cell.near-win:not(.marked)::before {
+            content: ""; position: absolute; width: 75%; height: 75%; 
+            border: 3px dashed var(--warning); border-radius: 50%;
+            animation: pulse 1.5s infinite;
         }
 
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
+
+        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; margin: 0; }
         .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; line-height: 1; font-weight: 900; }
-
-        /* HIGHLIGHTER FIX: Added !important and higher specificity */
-        .locked .cell.marked { 
-            background-color: var(--success) !important; 
-            color: white !important; 
-        }
-        .locked .cell.marked::after { 
-            content: ""; position: absolute; width: 70%; height: 70%; 
-            border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; 
-            pointer-events: none;
-        }
 
         button { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-add { background: var(--success); color: white; width: 180px; margin-bottom: 10px; }
         .btn-scan { background: var(--primary); color: white; width: 180px; margin-top: 5px; }
-        .btn-shuf { background: #e9ecef; font-size: 0.6rem; padding: 2px 5px; color: #333; border: 1px solid #ccc; }
-        .btn-del { background: var(--danger); color: white; font-size: 0.6rem; padding: 2px 5px; }
         
+        /* ADMIN PANEL LAYOUT FIX */
+        .admin-section { margin-top: 80px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
+        
+        .admin-keys { 
+            display: none; 
+            background: #222; 
+            color: white; 
+            padding: 30px 20px; 
+            border-radius: 16px; 
+            margin-top: 15px; 
+            /* Flex center alignment */
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .btn-master { 
+            background: #ff922b; 
+            color: white; 
+            width: 100%; 
+            max-width: 280px; 
+            padding: 16px; 
+            font-size: 1.1rem; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .qr-holder { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 12px; 
+            display: inline-block;
+        }
+
+        .btn-hide {
+            background: #444; 
+            color: white; 
+            width: 120px;
+            font-size: 0.9rem;
+        }
+
         #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
         #reader { width: 300px; max-width: 90%; background: white; border-radius: 8px; overflow: hidden; }
-
-        .admin-section { margin-top: 80px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
-        .admin-keys { display: none; background: #222; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; }
-        .qr-holder { display: inline-block; background: white; padding: 15px; border-radius: 10px; margin: 10px; }
     </style>
 </head>
 <body>
@@ -91,61 +116,67 @@
 <div class="cards-container" id="cardsContainer"></div>
 
 <div class="admin-section">
-    <button id="adminToggle" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Panel</button>
-    <div id="adminPanel" class="admin-keys">
-        <h4>UNIVERSAL TOGGLE KEY</h4>
+    <button id="adminTriggerBtn" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Access</button>
+    
+    <div id="adminPanel" class="admin-keys" style="display: none;">
+        <h3 style="margin: 0; color: #ff922b;">ADMIN CONTROLS</h3>
+        
+        <button class="btn-master" id="masterToggleButton" onclick="handleMasterToggle()">
+            FORCE LOCK
+        </button>
+        
         <div id="universalQR" class="qr-holder"></div>
-        <p style="font-size:0.8rem;">Flip between LOCK and UNLOCK</p>
-        <button onclick="closeAdmin()" style="background: #444; color: white;">Hide</button>
+        
+        <button class="btn-hide" onclick="closeAdmin()">Hide Panel</button>
     </div>
 </div>
 
 <script>
     const ADMIN_PASS = "SuperAdmin";
     const TOGGLE_SECRET = "BINGO_ACTION_TOGGLE_2026";
-
-    let cards = JSON.parse(localStorage.getItem('bingo_final_v1')) || [];
+    let cards = JSON.parse(localStorage.getItem('bingo_centered_v1')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
     let html5QrCode;
 
-    function save() { localStorage.setItem('bingo_final_v1', JSON.stringify(cards)); }
+    const PATTERNS = [
+        {id: 'r0', p: [0,1,2,3,4]}, {id: 'r1', p: [5,6,7,8,9]}, {id: 'r2', p: [10,11,12,13,14]}, {id: 'r3', p: [15,16,17,18,19]}, {id: 'r4', p: [20,21,22,23,24]},
+        {id: 'c0', p: [0,5,10,15,20]}, {id: 'c1', p: [1,6,11,16,21]}, {id: 'c2', p: [2,7,12,17,22]}, {id: 'c3', p: [3,8,13,18,23]}, {id: 'c4', p: [4,9,14,19,24]},
+        {id: 'd1', p: [0,6,12,18,24]}, {id: 'd2', p: [4,8,12,16,20]}
+    ];
+
+    const COORDS = {
+        'r0': [5,10,95,10], 'r1': [5,30,95,30], 'r2': [5,50,95,50], 'r3': [5,70,95,70], 'r4': [5,90,95,90],
+        'c0': [10,5,10,95], 'c1': [30,5,30,95], 'c2': [50,5,50,95], 'c3': [70,5,70,95], 'c4': [90,5,90,95],
+        'd1': [5,5,95,95], 'd2': [95,5,5,95]
+    };
+
+    function save() { localStorage.setItem('bingo_centered_v1', JSON.stringify(cards)); }
 
     function setLockState(state) {
         isLocked = state;
         localStorage.setItem('bingo_lock_state', state);
-        if (!state) { cards.forEach(card => { card.marks = []; card.winPattern = null; }); }
-        save();
-        render();
+        if (!state) cards.forEach(c => { c.marks = []; c.winPattern = null; c.waitingFor = []; });
+        save(); render(); updateAdminButton();
     }
 
-    const PATTERN_COORDS = {
-        'r0': [5, 10, 95, 10], 'r1': [5, 30, 95, 30], 'r2': [5, 50, 95, 50], 'r3': [5, 70, 95, 70], 'r4': [5, 90, 95, 90],
-        'c0': [10, 5, 10, 95], 'c1': [30, 5, 30, 95], 'c2': [50, 5, 50, 95], 'c3': [70, 5, 70, 95], 'c4': [90, 5, 90, 95],
-        'd1': [5, 5, 95, 95], 'd2': [95, 5, 5, 95]
-    };
-
-    function checkWin(card) {
+    function analyzeCard(card) {
         const marks = new Set(card.marks); marks.add(12);
-        const patterns = [
-            {id: 'r0', p: [0,1,2,3,4]}, {id: 'r1', p: [5,6,7,8,9]}, {id: 'r2', p: [10,11,12,13,14]}, {id: 'r3', p: [15,16,17,18,19]}, {id: 'r4', p: [20,21,22,23,24]},
-            {id: 'c0', p: [0,5,10,15,20]}, {id: 'c1', p: [1,6,11,16,21]}, {id: 'c2', p: [2,7,12,17,22]}, {id: 'c3', p: [3,8,13,18,23]}, {id: 'c4', p: [4,9,14,19,24]},
-            {id: 'd1', p: [0,6,12,18,24]}, {id: 'd2', p: [4,8,12,16,20]}
-        ];
-        const win = patterns.find(pat => pat.p.every(idx => marks.has(idx)));
-        return win ? win.id : null;
+        card.winPattern = null;
+        card.waitingFor = [];
+        PATTERNS.forEach(pat => {
+            const missing = pat.p.filter(idx => !marks.has(idx));
+            if (missing.length === 0) card.winPattern = pat.id;
+            else if (missing.length === 1) card.waitingFor.push(missing[0]);
+        });
     }
 
     function toggleMark(cardId, cellIndex) {
         if (!isLocked) return;
         const card = cards.find(c => c.id === cardId);
-        if (card.marks.includes(cellIndex)) {
-            card.marks = card.marks.filter(m => m !== cellIndex);
-        } else {
-            card.marks.push(cellIndex);
-        }
-        card.winPattern = checkWin(card);
-        save();
-        render(); // Re-render to show updated colors
+        if (card.marks.includes(cellIndex)) card.marks = card.marks.filter(m => m !== cellIndex);
+        else card.marks.push(cellIndex);
+        analyzeCard(card);
+        save(); render();
     }
 
     function render() {
@@ -157,23 +188,17 @@
         cards.forEach((card) => {
             const cardEl = document.createElement('div');
             cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''}`;
-            
             const header = document.createElement('div');
-            if (isLocked) {
-                header.innerHTML = `<div class="bingo-badge">BINGO!</div><div style="font-size:0.5rem; color:#999; text-align:center;">ID:${card.id.toString().slice(-4)}</div>`;
-            } else {
-                header.style = 'display:flex; justify-content:space-between; margin-bottom:5px;';
-                header.innerHTML = `<button class="btn-shuf" onclick="autoFill(${card.id})">AUTO</button><button class="btn-del" onclick="deleteCard(${card.id})">✕</button>`;
-            }
+            header.innerHTML = isLocked ? `<div class="bingo-badge">BINGO!</div><div style="font-size:0.5rem; color:#999; text-align:center;">ID:${card.id.toString().slice(-4)}</div>` 
+                : `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><button class="btn-shuf" onclick="autoFill(${card.id})">AUTO</button><button class="btn-del" onclick="deleteCard(${card.id})">✕</button></div>`;
             cardEl.appendChild(header);
 
             const gridWrapper = document.createElement('div');
             gridWrapper.className = 'grid-wrapper';
-
             const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.setAttribute("class", "strike-svg"); svg.setAttribute("viewBox", "0 0 100 100");
             if (card.winPattern) {
-                const c = PATTERN_COORDS[card.winPattern];
+                const c = COORDS[card.winPattern];
                 const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
                 l.setAttribute("stroke", "rgba(231, 76, 60, 0.8)"); l.setAttribute("stroke-width", "4"); l.setAttribute("stroke-linecap", "round");
@@ -190,27 +215,17 @@
             card.data.forEach((val, i) => {
                 const cell = document.createElement('div');
                 cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
-                
-                // State check for marked class
-                if (isLocked && (card.marks.includes(i) || (i === 12 && card.marks.length > 0))) {
-                    cell.classList.add('marked');
-                }
-
-                if (i === 12) {
-                    cell.innerText = "FREE";
-                } else if (!isLocked) {
-                    const input = document.createElement('input');
-                    input.type = "number"; input.value = val;
-                    input.oninput = (e) => { card.data[i] = e.target.value; save(); };
-                    cell.appendChild(input);
-                } else {
-                    cell.innerText = val;
-                }
-                
                 if (isLocked) {
+                    if (card.marks.includes(i) || (i === 12 && card.marks.length > 0)) cell.classList.add('marked');
+                    else if (card.waitingFor.includes(i)) cell.classList.add('near-win');
                     cell.onclick = () => toggleMark(card.id, i);
                 }
-                
+                if (i === 12) cell.innerText = "FREE";
+                else if (!isLocked) {
+                    const input = document.createElement('input'); input.type = "number"; input.value = val;
+                    input.oninput = (e) => { card.data[i] = e.target.value; save(); };
+                    cell.appendChild(input);
+                } else cell.innerText = val;
                 gridEl.appendChild(cell);
             });
             gridWrapper.appendChild(gridEl);
@@ -219,8 +234,13 @@
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null }); save(); render(); }
-    function deleteCard(id) { if(confirm("Delete Card?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
+    function handleMasterToggle() { if(confirm(isLocked ? "Unlock and Clear Cards?" : "Lock Cards and Start?")) setLockState(!isLocked); }
+    function updateAdminButton() { 
+        const b = document.getElementById('masterToggleButton'); 
+        if(b) { b.innerText = isLocked ? "FORCE UNLOCK / RESET" : "FORCE LOCK"; b.style.backgroundColor = isLocked ? "#e74c3c" : "#27ae60"; }
+    }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null, waitingFor: [] }); save(); render(); }
+    function deleteCard(id) { if(confirm("Delete?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
     function autoFill(id) {
         const card = cards.find(c => c.id === id);
         const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
@@ -230,12 +250,24 @@
         }
         save(); render();
     }
-    function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display='block'; generateQRs(); } }
-    function closeAdmin() { document.getElementById('adminPanel').style.display='none'; }
-    function generateQRs() {
-        document.getElementById("universalQR").innerHTML = "";
-        new QRCode(document.getElementById("universalQR"), { text: TOGGLE_SECRET, width: 220, height: 220 });
+
+    function openAdmin() { 
+        if (prompt("Admin Pass:") === ADMIN_PASS) { 
+            document.getElementById('adminPanel').style.display = 'flex'; 
+            document.getElementById('adminTriggerBtn').style.display = 'none';
+            generateQRs(); 
+            updateAdminButton(); 
+        } 
     }
+    function closeAdmin() { 
+        document.getElementById('adminPanel').style.display = 'none'; 
+        document.getElementById('adminTriggerBtn').style.display = 'inline-block';
+    }
+    function generateQRs() { 
+        document.getElementById("universalQR").innerHTML = ""; 
+        new QRCode(document.getElementById("universalQR"), { text: TOGGLE_SECRET, width: 200, height: 200 }); 
+    }
+
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
