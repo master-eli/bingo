@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera-Scan Bingo</title>
+    <title>Large QR Bingo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -29,30 +29,34 @@
         .btn-scan { background: var(--primary); color: white; width: 100%; margin-top: 5px; }
         .btn-shuf { background: #e9ecef; font-size: 0.6rem; }
         
-        /* Scanner Overlay */
         #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
-        #reader { width: 300px; background: white; border-radius: 8px; overflow: hidden; }
+        #reader { width: 320px; background: white; border-radius: 8px; overflow: hidden; }
 
+        /* Updated Admin Section for Larger QRs */
         .admin-section { margin-top: 50px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
-        .admin-keys { display: none; background: #333; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; }
-        .qr-holder { display: inline-block; background: white; padding: 10px; margin: 10px; border-radius: 5px; }
+        .admin-keys { display: none; background: #222; color: white; padding: 30px 10px; border-radius: 12px; margin-top: 15px; }
+        .qr-wrapper { margin-bottom: 40px; }
+        .qr-wrapper h4 { margin: 0 0 10px 0; letter-spacing: 2px; }
+        .qr-holder { display: inline-block; background: white; padding: 15px; border-radius: 10px; }
+        .lock-title { color: var(--primary); }
+        .unlock-title { color: var(--danger); }
     </style>
 </head>
 <body>
 
 <div id="scanner-container">
     <div id="reader"></div>
-    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Cancel Scan</button>
+    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Close Scanner</button>
 </div>
 
 <div class="controls-top">
     <div id="editButtons">
         <button class="btn-add" onclick="addCard()">+ Add New Card</button>
-        <button class="btn-scan" onclick="startScanner()">📷 SCAN ADMIN QR TO LOCK</button>
+        <button class="btn-scan" onclick="startScanner()">📷 SCAN TO LOCK</button>
     </div>
-    <div id="lockButtons" class="hidden" style="display:none;">
-        <div style="color: var(--danger); font-weight: bold; margin-bottom: 5px;">🔒 CARDS LOCKED</div>
-        <button class="btn-scan" style="background: #6c757d;" onclick="startScanner()">📷 SCAN ADMIN QR TO UNLOCK</button>
+    <div id="lockButtons" style="display:none;">
+        <div style="color: var(--danger); font-weight: bold; margin-bottom: 5px;">🔒 LOCKED</div>
+        <button class="btn-scan" style="background: #6c757d;" onclick="startScanner()">📷 SCAN TO UNLOCK</button>
     </div>
 </div>
 
@@ -62,12 +66,17 @@
     <button id="adminToggle" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Access</button>
     
     <div id="adminPanel" class="admin-keys">
-        <h3>Admin Control Keys</h3>
-        <div style="display: flex; justify-content: center; flex-wrap: wrap;">
-            <div><div id="lockQR" class="qr-holder"></div><p>LOCK KEY</p></div>
-            <div><div id="unlockQR" class="qr-holder"></div><p>UNLOCK KEY</p></div>
+        <div class="qr-wrapper">
+            <h4 class="lock-title">--- LOCK KEY ---</h4>
+            <div id="lockQR" class="qr-holder"></div>
         </div>
-        <button onclick="closeAdmin()" style="background: var(--danger); color: white;">Hide Admin Keys</button>
+        
+        <div class="qr-wrapper">
+            <h4 class="unlock-title">--- UNLOCK KEY ---</h4>
+            <div id="unlockQR" class="qr-holder"></div>
+        </div>
+        
+        <button onclick="closeAdmin()" style="background: #444; color: white; border: 1px solid #666;">Hide Keys</button>
     </div>
 </div>
 
@@ -76,32 +85,35 @@
     const LOCK_SECRET = "ACTION_LOCK_2026";
     const UNLOCK_SECRET = "ACTION_UNLOCK_ADMIN";
 
-    let cards = JSON.parse(localStorage.getItem('bingo_cam_v1')) || [];
+    let cards = JSON.parse(localStorage.getItem('bingo_cam_v2')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
     let html5QrCode;
 
-    // --- SCANNER LOGIC ---
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const config = { fps: 15, qrbox: { width: 250, height: 250 } };
 
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             if (decodedText === LOCK_SECRET) {
                 setLockState(true);
                 stopScanner();
-                alert("Cards Locked! Good luck.");
+                alert("Success: Locked!");
             } else if (decodedText === UNLOCK_SECRET) {
                 setLockState(false);
                 stopScanner();
-                alert("Cards Unlocked.");
+                alert("Success: Unlocked!");
             }
+        }).catch(err => {
+            console.error("Camera Error: ", err);
         });
     }
 
     function stopScanner() {
         if (html5QrCode) {
             html5QrCode.stop().then(() => {
+                document.getElementById('scanner-container').style.display = 'none';
+            }).catch(() => {
                 document.getElementById('scanner-container').style.display = 'none';
             });
         }
@@ -113,12 +125,12 @@
         render();
     }
 
-    // --- ADMIN LOGIC ---
     function openAdmin() {
         if (prompt("Admin Password:") === ADMIN_PASS) {
             document.getElementById('adminPanel').style.display = 'block';
             document.getElementById('adminToggle').style.display = 'none';
             generateQRs();
+            window.scrollTo(0, document.body.scrollHeight);
         }
     }
 
@@ -130,12 +142,12 @@
     function generateQRs() {
         document.getElementById("lockQR").innerHTML = "";
         document.getElementById("unlockQR").innerHTML = "";
-        new QRCode(document.getElementById("lockQR"), { text: LOCK_SECRET, width: 120, height: 120 });
-        new QRCode(document.getElementById("unlockQR"), { text: UNLOCK_SECRET, width: 120, height: 120 });
+        // Increased size to 200x200 for easier scanning
+        new QRCode(document.getElementById("lockQR"), { text: LOCK_SECRET, width: 200, height: 200 });
+        new QRCode(document.getElementById("unlockQR"), { text: UNLOCK_SECRET, width: 200, height: 200 });
     }
 
-    // --- BINGO LOGIC ---
-    function save() { localStorage.setItem('bingo_cam_v1', JSON.stringify(cards)); }
+    function save() { localStorage.setItem('bingo_cam_v2', JSON.stringify(cards)); }
 
     function addCard() {
         if(isLocked) return;
@@ -167,9 +179,8 @@
             cardEl.className = `bingo-card ${isLocked ? 'locked' : ''}`;
             
             const header = document.createElement('div');
-            header.style.display = 'flex';
-            header.style.justifyContent = 'space-between';
-            header.innerHTML = `<span style="font-size:0.6rem; color:#ccc;">ID:${card.id.toString().slice(-4)}</span>`;
+            header.style = 'display:flex; justify-content:space-between; margin-bottom:5px;';
+            header.innerHTML = `<span style="font-size:0.6rem; color:#999;">ID:${card.id.toString().slice(-4)}</span>`;
             
             if(!isLocked) {
                 const shuf = document.createElement('button');
