@@ -3,29 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fluid Bingo Workflow</title>
+    <title>Bingo & Blackout Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --border: #ced4da; --win-gold: #f1c40f; }
+        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; }
         body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 10px; padding-bottom: 80px; }
         
-        .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid var(--border); text-align: center;}
+        .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid #dee2e6; text-align: center;}
         
         .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         @media (min-width: 768px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
 
         .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
         .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+        .winner-blackout { border: 3px solid var(--dark); background: #fdfdfd; }
+
+        .win-badge { display: none; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
+        .winner .win-badge.bingo { display: block; background: var(--win-gold); color: black; }
+        .winner-blackout .win-badge.blackout { display: block; background: var(--dark); color: white; }
         
-        .bingo-badge { display: none; background: var(--win-gold); color: #000; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
-        .winner .bingo-badge { display: block; }
-        
+        .to-go-counter { font-size: 0.75rem; font-weight: 800; color: var(--danger); text-align: center; margin-bottom: 4px; background: #ffe3e3; border-radius: 4px; padding: 2px; }
+
         .grid-wrapper { position: relative; width: 100%; }
         .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; width: 100%; }
         
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
-        .winner .strike-svg { display: block; }
+        .winner:not(.winner-blackout) .strike-svg { display: block; }
 
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
         .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); overflow: hidden; touch-action: manipulation; }
@@ -33,28 +37,30 @@
         .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
 
+        /* PULSING HIGHLIGHTER */
         .locked .cell.near-win:not(.marked) { color: var(--warning); }
         .locked .cell.near-win:not(.marked)::before {
             content: ""; position: absolute; width: 75%; height: 75%; 
-            border: 3px dashed var(--warning); border-radius: 50%;
-            animation: pulse 1.5s infinite;
+            border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite;
         }
 
-        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
+        @keyframes pulse { 0%, 100% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
 
-        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; margin: 0; position: absolute; top:0; left:0;}
+        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; }
         .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; line-height: 1; font-weight: 900; }
 
-        button { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button { padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
+        button:active { opacity: 0.7; }
         
-        /* Main Action Buttons */
-        .btn-play { background: var(--success); color: white; width: 220px; font-size: 1.1rem; padding: 15px; }
-        .btn-end { background: var(--danger); color: white; width: 140px; }
-        .btn-edit-lock { background: #6c757d; color: white; width: 140px; font-size: 0.75rem; margin-top: 5px;}
+        .btn-stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .btn-play { background: var(--success); color: white; width: 220px; font-size: 1.1rem; }
+        .btn-end { background: var(--danger); color: white; width: 200px; }
+        .btn-edit-mode { background: #6c757d; color: white; width: 200px; font-size: 0.8rem; }
         
-        .btn-add { background: #eee; color: #444; border: 1px solid #ccc; width: 120px; margin-bottom: 10px; }
-        
-        /* Admin */
+        .mode-toggle { background: #f1f3f5; padding: 12px; border-radius: 50px; margin-bottom: 15px; display: inline-flex; align-items: center; border: 1px solid #ccc; }
+        .mode-toggle input { margin-right: 5px; cursor: pointer; }
+        .mode-toggle label { font-size: 0.9rem; font-weight: bold; margin: 0 10px; cursor: pointer; }
+
         .admin-section { margin-top: 80px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
         .admin-keys { display: none; background: #222; color: white; padding: 30px 20px; border-radius: 16px; flex-direction: column; align-items: center; gap: 20px; }
         .qr-holder { background: white; padding: 15px; border-radius: 12px; }
@@ -67,33 +73,37 @@
 
 <div id="scanner-container">
     <div id="reader"></div>
-    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Cancel Scan</button>
+    <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Close Scanner</button>
 </div>
 
 <div class="controls-top">
     <div id="editButtons">
-        <button class="btn-add" onclick="addCard()">+ Add Card</button><br>
-        <button class="btn-play" onclick="setPlayMode(true)">▶ START GAME</button>
+        <div class="mode-toggle">
+            <input type="radio" id="modeBingo" name="gameMode" value="bingo" checked>
+            <label for="modeBingo">BINGO</label>
+            <span style="color:#ccc;">|</span>
+            <input type="radio" id="modeBlackout" name="gameMode" value="blackout">
+            <label for="modeBlackout">BLACKOUT</label>
+        </div>
+        <div class="btn-stack">
+            <button style="background:#e9ecef; color:#444; border:1px solid #adb5bd;" onclick="addCard()">+ Add Card</button>
+            <button class="btn-play" onclick="setPlayMode(true)">▶ START GAME</button>
+        </div>
     </div>
     
-    <div id="playButtons" style="display:none;">
-        <div style="display: flex; justify-content: center; gap: 10px; align-items: flex-start;">
-            <button class="btn-end" onclick="nextRound()">🔄 END GAME</button>
-            <div style="display: flex; flex-direction: column;">
-                <button class="btn-edit-lock" onclick="startScanner()">📷 EDIT CARDS</button>
-            </div>
-        </div>
-        <p style="font-size: 0.7rem; color: #777; margin: 5px 0 0 0;">(End Game clears marks. Edit Cards requires QR.)</p>
+    <div id="playButtons" style="display:none;" class="btn-stack">
+        <button class="btn-end" onclick="nextRound()">🔄 END GAME (CLEAR)</button>
+        <button class="btn-edit-mode" onclick="startScanner()">📷 SCAN TO EDIT CARDS</button>
     </div>
 </div>
 
 <div class="cards-container" id="cardsContainer"></div>
 
 <div class="admin-section">
-    <button id="adminTrigger" onclick="openAdmin()" style="background: transparent; color: #ccc; font-size: 0.7rem; border: 1px solid #eee;">Admin Access</button>
+    <button onclick="openAdmin()" style="background: transparent; color: #ced4da; font-size: 0.7rem; border: 1px solid #eee;">Admin Panel</button>
     <div id="adminPanel" class="admin-keys">
-        <h3 style="margin:0; color:var(--warning)">HOST CONTROL</h3>
-        <button style="background:var(--danger); color:white; padding:15px; width:200px;" onclick="handleForceEdit()">FORCE EDIT MODE</button>
+        <h3 style="margin:0; color:var(--warning)">HOST TOOLS</h3>
+        <button style="background:var(--danger); color:white; padding:15px; width:200px;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
         <div id="universalQR" class="qr-holder"></div>
         <button onclick="closeAdmin()" style="background:#444; color:white;">Hide Panel</button>
     </div>
@@ -102,60 +112,63 @@
 <script>
     const ADMIN_PASS = "SuperAdmin";
     const EDIT_SECRET = "BINGO_EDIT_2026";
-    let cards = JSON.parse(localStorage.getItem('bingo_fluid_v1')) || [];
-    let isLocked = JSON.parse(localStorage.getItem('bingo_lock_state')) || false;
+    let cards = JSON.parse(localStorage.getItem('bingo_v2_data')) || [];
+    let isLocked = JSON.parse(localStorage.getItem('bingo_v2_lock')) || false;
+    let gameMode = localStorage.getItem('bingo_v2_mode') || 'bingo';
     let html5QrCode;
 
     const PATTERNS = [
-        {id: 'r0', p: [0,1,2,3,4]}, {id: 'r1', p: [5,6,7,8,9]}, {id: 'r2', p: [10,11,12,13,14]}, {id: 'r3', p: [15,16,17,18,19]}, {id: 'r4', p: [20,21,22,23,24]},
-        {id: 'c0', p: [0,5,10,15,20]}, {id: 'c1', p: [1,6,11,16,21]}, {id: 'c2', p: [2,7,12,17,22]}, {id: 'c3', p: [3,8,13,18,23]}, {id: 'c4', p: [4,9,14,19,24]},
-        {id: 'd1', p: [0,6,12,18,24]}, {id: 'd2', p: [4,8,12,16,20]}
+        {id:'r0', p:[0,1,2,3,4]}, {id:'r1', p:[5,6,7,8,9]}, {id:'r2', p:[10,11,12,13,14]}, {id:'r3', p:[15,16,17,18,19]}, {id:'r4', p:[20,21,22,23,24]},
+        {id:'c0', p:[0,5,10,15,20]}, {id:'c1', p:[1,6,11,16,21]}, {id:'c2', p:[2,7,12,17,22]}, {id:'c3', p:[3,8,13,18,23]}, {id:'c4', p:[4,9,14,19,24]},
+        {id:'d1', p:[0,6,12,18,24]}, {id:'d2', p:[4,8,12,16,20]}
     ];
 
-    const COORDS = {
-        'r0': [5,10,95,10], 'r1': [5,30,95,30], 'r2': [5,50,95,50], 'r3': [5,70,95,70], 'r4': [5,90,95,90],
-        'c0': [10,5,10,95], 'c1': [30,5,30,95], 'c2': [50,5,50,95], 'c3': [70,5,70,95], 'c4': [90,5,90,95],
-        'd1': [5,5,95,95], 'd2': [95,5,5,95]
-    };
-
-    function save() { localStorage.setItem('bingo_fluid_v1', JSON.stringify(cards)); }
+    function save() { 
+        localStorage.setItem('bingo_v2_data', JSON.stringify(cards));
+        localStorage.setItem('bingo_v2_lock', isLocked);
+        localStorage.setItem('bingo_v2_mode', gameMode);
+    }
 
     function setPlayMode(state) {
-        if(state && cards.some(c => c.data.some(v => v === ""))) {
-            if(!confirm("Some cells are empty. Start anyway?")) return;
+        if(state) {
+            gameMode = document.querySelector('input[name="gameMode"]:checked').value;
+            if(!confirm(`Confirm ${gameMode.toUpperCase()} mode?`)) return;
         }
         isLocked = state;
-        localStorage.setItem('bingo_lock_state', state);
-        render();
+        save(); render();
     }
 
-    // NEW FUNCTION: End Game resets marks but keeps you in Play Mode
     function nextRound() {
-        if(confirm("End this game and clear all marks for a new round?")) {
-            cards.forEach(c => {
-                c.marks = [];
-                c.winPattern = null;
-                c.waitingFor = [];
-            });
-            save();
-            render();
+        if(confirm("End game and clear marks?")) {
+            cards.forEach(c => { c.marks = []; c.winPattern = null; c.waitingFor = []; c.blackoutToGo = 24; });
+            save(); render();
         }
     }
-
-    function handleForceEdit() { if(confirm("Go back to Card Setup?")) setPlayMode(false); }
 
     function analyzeCard(card) {
         const marks = new Set(card.marks); marks.add(12);
-        card.winPattern = null; card.waitingFor = [];
-        PATTERNS.forEach(pat => {
-            const missing = pat.p.filter(idx => !marks.has(idx));
-            if (missing.length === 0) card.winPattern = pat.id;
-            else if (missing.length === 1) card.waitingFor.push(missing[0]);
-        });
+        card.winPattern = null;
+        card.waitingFor = [];
+        
+        if (gameMode === 'bingo') {
+            PATTERNS.forEach(pat => {
+                const missing = pat.p.filter(idx => !marks.has(idx));
+                if (missing.length === 0) card.winPattern = pat.id;
+                else if (missing.length === 1) card.waitingFor.push(missing[0]);
+            });
+        } else {
+            const allIndices = Array.from({length: 25}, (_, i) => i);
+            const missing = allIndices.filter(idx => idx !== 12 && !marks.has(idx));
+            card.blackoutToGo = missing.length;
+            
+            if (missing.length === 0) card.winPattern = 'blackout';
+            // NEW: If 5 or fewer left, highlight all missing numbers
+            else if (missing.length <= 5) card.waitingFor = missing;
+        }
     }
 
     function toggleMark(cardId, cellIndex) {
-        if (!isLocked) return;
+        if (!isLocked || cellIndex === 12) return;
         const card = cards.find(c => c.id === cardId);
         if (card.marks.includes(cellIndex)) card.marks = card.marks.filter(m => m !== cellIndex);
         else card.marks.push(cellIndex);
@@ -165,23 +178,33 @@
     function render() {
         const container = document.getElementById('cardsContainer');
         document.getElementById('editButtons').style.display = isLocked ? 'none' : 'block';
-        document.getElementById('playButtons').style.display = isLocked ? 'block' : 'none';
+        document.getElementById('playButtons').style.display = isLocked ? 'flex' : 'none';
         container.innerHTML = '';
 
         cards.forEach((card) => {
+            const isWin = card.winPattern !== null;
             const cardEl = document.createElement('div');
-            cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''}`;
+            cardEl.className = `bingo-card ${isWin ? (gameMode === 'bingo' ? 'winner' : 'winner-blackout winner') : ''} ${isLocked ? 'locked' : ''}`;
+            
             const header = document.createElement('div');
-            header.innerHTML = isLocked ? `<div class="bingo-badge">BINGO!</div><div style="font-size:0.5rem; color:#999; text-align:center;">ID:${card.id.toString().slice(-4)}</div>` 
-                : `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><button class="btn-shuf" onclick="autoFill(${card.id})">AUTO</button><button class="btn-del" onclick="deleteCard(${card.id})">✕</button></div>`;
+            if (isLocked) {
+                let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
+                if (gameMode === 'blackout' && !isWin) {
+                    html += `<div class="to-go-counter">${card.blackoutToGo ?? 24} TO GO</div>`;
+                }
+                header.innerHTML = html;
+            } else {
+                header.style = 'display:flex; justify-content:space-between; margin-bottom:5px;';
+                header.innerHTML = `<button style="padding:4px 8px; font-size:0.6rem; background:#4a90e2; color:white;" onclick="autoFill(${card.id})">AUTO</button><button style="padding:4px 8px; font-size:0.6rem; background:var(--danger); color:white;" onclick="deleteCard(${card.id})">✕</button>`;
+            }
             cardEl.appendChild(header);
 
             const gridWrapper = document.createElement('div');
             gridWrapper.className = 'grid-wrapper';
             const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.setAttribute("class", "strike-svg"); svg.setAttribute("viewBox", "0 0 100 100");
-            if (card.winPattern) {
-                const c = COORDS[card.winPattern];
+            if (isWin && gameMode === 'bingo') {
+                const c = { 'r0':[5,10,95,10], 'r1':[5,30,95,30], 'r2':[5,50,95,50], 'r3':[5,70,95,70], 'r4':[5,90,95,90], 'c0':[10,5,10,95], 'c1':[30,5,30,95], 'c2':[50,5,50,95], 'c3':[70,5,70,95], 'c4':[90,5,90,95], 'd1':[5,5,95,95], 'd2':[95,5,5,95] }[card.winPattern];
                 const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
                 l.setAttribute("stroke", "rgba(231, 76, 60, 0.8)"); l.setAttribute("stroke-width", "4"); l.setAttribute("stroke-linecap", "round");
@@ -199,7 +222,7 @@
                 const cell = document.createElement('div');
                 cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
                 if (isLocked) {
-                    if (card.marks.includes(i) || (i === 12 && card.marks.length > 0)) cell.classList.add('marked');
+                    if (card.marks.includes(i) || i === 12) cell.classList.add('marked');
                     else if (card.waitingFor.includes(i)) cell.classList.add('near-win');
                     cell.onclick = () => toggleMark(card.id, i);
                 }
@@ -217,7 +240,7 @@
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null, waitingFor: [] }); save(); render(); }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null, waitingFor: [], blackoutToGo: 24 }); save(); render(); }
     function deleteCard(id) { if(confirm("Delete Card?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
     function autoFill(id) {
         const card = cards.find(c => c.id === id);
@@ -228,11 +251,10 @@
         }
         save(); render();
     }
-
+    function handleForceEdit() { if(confirm("Force Setup Mode?")) setPlayMode(false); }
     function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display = 'flex'; generateQRs(); } }
     function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
     function generateQRs() { document.getElementById("universalQR").innerHTML = ""; new QRCode(document.getElementById("universalQR"), { text: EDIT_SECRET, width: 180, height: 180 }); }
-
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
