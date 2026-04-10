@@ -8,26 +8,34 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; }
-        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 10px; padding-bottom: 80px; }
+        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; padding-bottom: 80px; }
         
-        .controls-top { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; border: 1px solid #dee2e6; text-align: center;}
+        /* MINIMALIST MENU BUTTON */
+        .menu-btn-fixed { position: fixed; top: 15px; right: 15px; z-index: 1000; width: 45px; height: 45px; border-radius: 50%; background: var(--dark); color: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         
+        #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; }
+
+        /* DARK CALLER BOARD */
+        #caller-board-area { display: none; background: #2c3e50; border-radius: 12px; padding: 15px; margin-bottom: 25px; border: 1px solid #1a252f; box-shadow: inset 0 2px 10px rgba(0,0,0,0.3); margin-top: 10px; }
+        .caller-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; margin-bottom: 12px; }
+        .caller-ball { aspect-ratio: 1/1; border: 1px solid #455a64; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #34495e; cursor: pointer; font-size: 0.7rem; color: #bdc3c7; }
+        .caller-ball.active { background: var(--success); color: white; border-color: #2ecc71; }
+        .caller-status-area { background: #1a252f; border-radius: 8px; padding: 10px; font-size: 0.8rem; max-height: 150px; overflow-y: auto; text-align: left; color: #ecf0f1; border: 1px solid #111; }
+        .win-list-item { margin-bottom: 6px; padding: 6px 10px; border-left: 4px solid var(--win-gold); background: rgba(255,255,255,0.05); border-radius: 4px; }
+
         .cards-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         @media (min-width: 768px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
 
-        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; transition: all 0.3s ease; }
         .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
-        .winner-blackout { border: 3px solid var(--dark); background: #fdfdfd; }
-
         .win-badge { display: none; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
         .winner .win-badge.bingo { display: block; background: var(--win-gold); color: black; }
-        .winner-blackout .win-badge.blackout { display: block; background: var(--dark); color: white; }
+        .winner.winner-blackout .win-badge.blackout { display: block; background: var(--dark); color: white; }
         
         .to-go-counter { font-size: 0.75rem; font-weight: 800; color: var(--danger); text-align: center; margin-bottom: 4px; background: #ffe3e3; border-radius: 4px; padding: 2px; }
 
         .grid-wrapper { position: relative; width: 100%; }
-        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; width: 100%; }
-        
+        .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
         .winner:not(.winner-blackout) .strike-svg { display: block; }
 
@@ -36,36 +44,24 @@
         
         .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
-
-        /* PULSING HIGHLIGHTER */
         .locked .cell.near-win:not(.marked) { color: var(--warning); }
-        .locked .cell.near-win:not(.marked)::before {
-            content: ""; position: absolute; width: 75%; height: 75%; 
-            border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite;
-        }
+        .locked .cell.near-win:not(.marked)::before { content: ""; position: absolute; width: 75%; height: 75%; border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite; }
 
         @keyframes pulse { 0%, 100% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
 
         .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; }
-        .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; line-height: 1; font-weight: 900; }
+        .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; font-weight: 900; }
 
         button { padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
-        button:active { opacity: 0.7; }
+        .btn-stack { display: flex; flex-direction: column; gap: 10px; }
+        .btn-play { background: var(--success); color: white; width: 100%; }
+        .btn-end { background: var(--danger); color: white; width: 100%; }
+        .btn-caller { background: var(--primary); color: white; width: 100%; }
         
-        .btn-stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .btn-play { background: var(--success); color: white; width: 220px; font-size: 1.1rem; }
-        .btn-end { background: var(--danger); color: white; width: 200px; }
-        .btn-edit-mode { background: #6c757d; color: white; width: 200px; font-size: 0.8rem; }
+        .mode-toggle { background: #f1f3f5; padding: 10px; border-radius: 50px; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; border: 1px solid #ccc; font-size: 0.8rem; }
         
-        .mode-toggle { background: #f1f3f5; padding: 12px; border-radius: 50px; margin-bottom: 15px; display: inline-flex; align-items: center; border: 1px solid #ccc; }
-        .mode-toggle input { margin-right: 5px; cursor: pointer; }
-        .mode-toggle label { font-size: 0.9rem; font-weight: bold; margin: 0 10px; cursor: pointer; }
-
-        .admin-section { margin-top: 80px; padding: 20px; border-top: 1px solid #ccc; text-align: center; }
-        .admin-keys { display: none; background: #222; color: white; padding: 30px 20px; border-radius: 16px; flex-direction: column; align-items: center; gap: 20px; }
-        .qr-holder { background: white; padding: 15px; border-radius: 12px; }
-        
-        #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+        #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
+        #adminPanel { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: white; }
         #reader { width: 300px; max-width: 90%; background: white; border-radius: 8px; overflow: hidden; }
     </style>
 </head>
@@ -76,14 +72,23 @@
     <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Close Scanner</button>
 </div>
 
-<div class="controls-top">
+<div id="adminPanel">
+    <h3 style="margin:0; color:var(--warning)">HOST TOOLS</h3>
+    <button style="background:var(--danger); color:white; padding:15px; width:200px; margin: 20px 0;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
+    <div id="universalQR" style="background:white; padding:10px; border-radius:8px; margin-bottom: 20px;"></div>
+    <button onclick="closeAdmin()" style="background:#444; color:white;">Hide Panel</button>
+</div>
+
+<button class="menu-btn-fixed" onclick="toggleMenu()">☰</button>
+
+<div id="menuContent">
     <div id="editButtons">
         <div class="mode-toggle">
             <input type="radio" id="modeBingo" name="gameMode" value="bingo" checked>
-            <label for="modeBingo">BINGO</label>
+            <label for="modeBingo" style="margin: 0 10px;">BINGO</label>
             <span style="color:#ccc;">|</span>
             <input type="radio" id="modeBlackout" name="gameMode" value="blackout">
-            <label for="modeBlackout">BLACKOUT</label>
+            <label for="modeBlackout" style="margin: 0 10px;">BLACKOUT</label>
         </div>
         <div class="btn-stack">
             <button style="background:#e9ecef; color:#444; border:1px solid #adb5bd;" onclick="addCard()">+ Add Card</button>
@@ -92,22 +97,22 @@
     </div>
     
     <div id="playButtons" style="display:none;" class="btn-stack">
-        <button class="btn-end" onclick="nextRound()">🔄 END GAME (CLEAR)</button>
-        <button class="btn-edit-mode" onclick="startScanner()">📷 SCAN TO EDIT CARDS</button>
+        <button class="btn-caller" id="toggleCallerBtn" onclick="toggleCallerBoard()">📟 CALLER BOARD</button>
+        <button style="background:#6c757d; color:white;" onclick="startScanner()">📷 SCAN EDIT</button>
+        <button class="btn-end" onclick="nextRound()">🔄 END GAME</button>
     </div>
+
+    <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; text-align: center;">
+        <button onclick="openAdmin()" style="background: transparent; color: #ced4da; font-size: 0.7rem; border: none; cursor: pointer;">Admin Panel</button>
+    </div>
+</div>
+
+<div id="caller-board-area">
+    <div class="caller-grid" id="callerGridDisplay"></div>
+    <div class="caller-status-area" id="callerStatusList"></div>
 </div>
 
 <div class="cards-container" id="cardsContainer"></div>
-
-<div class="admin-section">
-    <button onclick="openAdmin()" style="background: transparent; color: #ced4da; font-size: 0.7rem; border: 1px solid #eee;">Admin Panel</button>
-    <div id="adminPanel" class="admin-keys">
-        <h3 style="margin:0; color:var(--warning)">HOST TOOLS</h3>
-        <button style="background:var(--danger); color:white; padding:15px; width:200px;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
-        <div id="universalQR" class="qr-holder"></div>
-        <button onclick="closeAdmin()" style="background:#444; color:white;">Hide Panel</button>
-    </div>
-</div>
 
 <script>
     const ADMIN_PASS = "SuperAdmin";
@@ -115,6 +120,7 @@
     let cards = JSON.parse(localStorage.getItem('bingo_v2_data')) || [];
     let isLocked = JSON.parse(localStorage.getItem('bingo_v2_lock')) || false;
     let gameMode = localStorage.getItem('bingo_v2_mode') || 'bingo';
+    let calledBalls = JSON.parse(localStorage.getItem('bingo_v2_balls')) || [];
     let html5QrCode;
 
     const PATTERNS = [
@@ -127,52 +133,128 @@
         localStorage.setItem('bingo_v2_data', JSON.stringify(cards));
         localStorage.setItem('bingo_v2_lock', isLocked);
         localStorage.setItem('bingo_v2_mode', gameMode);
+        localStorage.setItem('bingo_v2_balls', JSON.stringify(calledBalls));
+    }
+
+    function toggleMenu() {
+        const content = document.getElementById('menuContent');
+        content.style.display = (content.style.display === 'block') ? 'none' : 'block';
     }
 
     function setPlayMode(state) {
         if(state) {
             gameMode = document.querySelector('input[name="gameMode"]:checked').value;
-            if(!confirm(`Confirm ${gameMode.toUpperCase()} mode?`)) return;
+        } else {
+            document.getElementById('caller-board-area').style.display = 'none';
         }
         isLocked = state;
         save(); render();
+        document.getElementById('menuContent').style.display = 'none';
     }
 
     function nextRound() {
-        if(confirm("End game and clear marks?")) {
-            cards.forEach(c => { c.marks = []; c.winPattern = null; c.waitingFor = []; c.blackoutToGo = 24; });
+        if(confirm("End game and clear?")) {
+            cards.forEach(c => { c.marks = []; c.winPattern = null; });
+            calledBalls = [];
             save(); render();
+            renderCallerGrid();
+            document.getElementById('menuContent').style.display = 'none';
         }
+    }
+
+    function toggleCallerBoard() {
+        const area = document.getElementById('caller-board-area');
+        const btn = document.getElementById('toggleCallerBtn');
+        area.style.display = (area.style.display === 'block') ? 'none' : 'block';
+        btn.innerText = (area.style.display === 'block') ? "📟 HIDE BOARD" : "📟 CALLER BOARD";
+        if(area.style.display === 'block') renderCallerGrid();
+        document.getElementById('menuContent').style.display = 'none';
+    }
+
+    function renderCallerGrid() {
+        const grid = document.getElementById('callerGridDisplay');
+        const statusList = document.getElementById('callerStatusList');
+        if(!grid) return;
+        grid.innerHTML = ''; statusList.innerHTML = '';
+
+        const hotNumbers = new Set();
+        cards.forEach(card => {
+            if (card.winPattern) return;
+            const marks = new Set(card.marks); marks.add(12);
+            if (gameMode === 'bingo') {
+                PATTERNS.forEach(pat => {
+                    const missing = pat.p.filter(idx => !marks.has(idx));
+                    if (missing.length === 1) hotNumbers.add(Number(card.data[missing[0]]));
+                });
+            } else {
+                const missing = Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx));
+                if (missing.length <= 5) missing.forEach(idx => hotNumbers.add(Number(card.data[idx])));
+            }
+        });
+
+        for(let i=1; i<=75; i++) {
+            const ball = document.createElement('div');
+            const isCalled = calledBalls.includes(i);
+            ball.className = `caller-ball ${isCalled ? 'active' : ''}`;
+            if (hotNumbers.has(i) && !isCalled) {
+                ball.style.borderColor = 'var(--win-gold)';
+                ball.style.boxShadow = '0 0 10px rgba(241, 196, 15, 0.6)';
+                ball.style.color = 'var(--win-gold)';
+            }
+            ball.innerText = i;
+            ball.onclick = () => toggleMasterBall(i);
+            grid.appendChild(ball);
+        }
+
+        cards.forEach((card, idx) => {
+            let info = "";
+            if (card.winPattern) {
+                info = `<div class="win-list-item" style="border-left-color: var(--success)"><strong>Card ${idx+1}: WIN!</strong></div>`;
+            } else {
+                const marks = new Set(card.marks); marks.add(12);
+                if (gameMode === 'bingo') {
+                    let paths = [];
+                    PATTERNS.forEach(pat => {
+                        const missing = pat.p.filter(index => !marks.has(index));
+                        if (missing.length === 1) paths.push(`<b style="color:var(--win-gold)">${card.data[missing[0]]}</b>`);
+                    });
+                    if (paths.length > 0) info = `<div class="win-list-item"><strong>Card ${idx+1}:</strong> Needs [${[...new Set(paths)].join(', ')}]</div>`;
+                } else {
+                    const missing = Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx));
+                    if (missing.length <= 5) {
+                        const missingNums = missing.map(idx => `<b style="color:var(--danger)">${card.data[idx]}</b>`).join(', ');
+                        info = `<div class="win-list-item" style="border-left-color: var(--danger)"><strong>Card ${idx+1}:</strong> ${missing.length} left [${missingNums}]</div>`;
+                    }
+                }
+            }
+            statusList.innerHTML += info;
+        });
+    }
+
+    function toggleMasterBall(num) {
+        if(calledBalls.includes(num)) calledBalls = calledBalls.filter(b => b !== num);
+        else calledBalls.push(num);
+        cards.forEach(card => {
+            card.marks = [];
+            card.data.forEach((val, i) => { if(calledBalls.includes(Number(val))) card.marks.push(i); });
+            analyzeCard(card);
+        });
+        save(); render(); renderCallerGrid();
     }
 
     function analyzeCard(card) {
         const marks = new Set(card.marks); marks.add(12);
         card.winPattern = null;
-        card.waitingFor = [];
-        
         if (gameMode === 'bingo') {
-            PATTERNS.forEach(pat => {
-                const missing = pat.p.filter(idx => !marks.has(idx));
-                if (missing.length === 0) card.winPattern = pat.id;
-                else if (missing.length === 1) card.waitingFor.push(missing[0]);
-            });
+            PATTERNS.forEach(pat => { if (pat.p.filter(idx => !marks.has(idx)).length === 0) card.winPattern = pat.id; });
         } else {
-            const allIndices = Array.from({length: 25}, (_, i) => i);
-            const missing = allIndices.filter(idx => idx !== 12 && !marks.has(idx));
-            card.blackoutToGo = missing.length;
-            
-            if (missing.length === 0) card.winPattern = 'blackout';
-            // NEW: If 5 or fewer left, highlight all missing numbers
-            else if (missing.length <= 5) card.waitingFor = missing;
+            if (Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length === 0) card.winPattern = 'blackout';
         }
     }
 
     function toggleMark(cardId, cellIndex) {
         if (!isLocked || cellIndex === 12) return;
-        const card = cards.find(c => c.id === cardId);
-        if (card.marks.includes(cellIndex)) card.marks = card.marks.filter(m => m !== cellIndex);
-        else card.marks.push(cellIndex);
-        analyzeCard(card); save(); render();
+        toggleMasterBall(Number(cards.find(c => c.id === cardId).data[cellIndex]));
     }
 
     function render() {
@@ -182,28 +264,29 @@
         container.innerHTML = '';
 
         cards.forEach((card) => {
-            const isWin = card.winPattern !== null;
-            const cardEl = document.createElement('div');
-            cardEl.className = `bingo-card ${isWin ? (gameMode === 'bingo' ? 'winner' : 'winner-blackout winner') : ''} ${isLocked ? 'locked' : ''}`;
-            
-            const header = document.createElement('div');
-            if (isLocked) {
-                let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
-                if (gameMode === 'blackout' && !isWin) {
-                    html += `<div class="to-go-counter">${card.blackoutToGo ?? 24} TO GO</div>`;
+            const nearWinIndices = new Set();
+            const marks = new Set(card.marks); marks.add(12);
+            if (isLocked && !card.winPattern) {
+                if (gameMode === 'bingo') {
+                    PATTERNS.forEach(pat => { if (pat.p.filter(idx => !marks.has(idx)).length === 1) nearWinIndices.add(pat.p.find(idx => !marks.has(idx))); });
+                } else {
+                    const missing = Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx));
+                    if (missing.length <= 5) missing.forEach(idx => nearWinIndices.add(idx));
                 }
-                header.innerHTML = html;
-            } else {
-                header.style = 'display:flex; justify-content:space-between; margin-bottom:5px;';
-                header.innerHTML = `<button style="padding:4px 8px; font-size:0.6rem; background:#4a90e2; color:white;" onclick="autoFill(${card.id})">AUTO</button><button style="padding:4px 8px; font-size:0.6rem; background:var(--danger); color:white;" onclick="deleteCard(${card.id})">✕</button>`;
             }
-            cardEl.appendChild(header);
 
-            const gridWrapper = document.createElement('div');
-            gridWrapper.className = 'grid-wrapper';
+            const cardEl = document.createElement('div');
+            cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''} ${card.winPattern === 'blackout' ? 'winner-blackout' : ''}`;
+            
+            let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
+            if (isLocked && gameMode === 'blackout' && !card.winPattern) html += `<div class="to-go-counter">${Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length} TO GO</div>`;
+            if (!isLocked) html = `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><button style="background:#4a90e2; color:white; padding:4px 8px; font-size:0.6rem;" onclick="autoFill(${card.id})">AUTO</button><button style="background:var(--danger); color:white; padding:4px 8px; font-size:0.6rem;" onclick="deleteCard(${card.id})">✕</button></div>`;
+            
+            cardEl.innerHTML = html;
+            const gridWrapper = document.createElement('div'); gridWrapper.className = 'grid-wrapper';
             const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             svg.setAttribute("class", "strike-svg"); svg.setAttribute("viewBox", "0 0 100 100");
-            if (isWin && gameMode === 'bingo') {
+            if (card.winPattern && gameMode === 'bingo') {
                 const c = { 'r0':[5,10,95,10], 'r1':[5,30,95,30], 'r2':[5,50,95,50], 'r3':[5,70,95,70], 'r4':[5,90,95,90], 'c0':[10,5,10,95], 'c1':[30,5,30,95], 'c2':[50,5,50,95], 'c3':[70,5,70,95], 'c4':[90,5,90,95], 'd1':[5,5,95,95], 'd2':[95,5,5,95] }[card.winPattern];
                 const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 l.setAttribute("x1", c[0]); l.setAttribute("y1", c[1]); l.setAttribute("x2", c[2]); l.setAttribute("y2", c[3]);
@@ -211,61 +294,51 @@
                 svg.appendChild(l);
             }
             gridWrapper.appendChild(svg);
-
-            const gridEl = document.createElement('div');
-            gridEl.className = 'bingo-grid';
-            ['B','I','N','G','O'].forEach(l => {
-                const h = document.createElement('div'); h.className = 'letter-header'; h.innerText = l; gridEl.appendChild(h);
-            });
+            const gridEl = document.createElement('div'); gridEl.className = 'bingo-grid';
+            ['B','I','N','G','O'].forEach(l => { const h = document.createElement('div'); h.className = 'letter-header'; h.innerText = l; gridEl.appendChild(h); });
 
             card.data.forEach((val, i) => {
-                const cell = document.createElement('div');
-                cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
+                const cell = document.createElement('div'); cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
                 if (isLocked) {
                     if (card.marks.includes(i) || i === 12) cell.classList.add('marked');
-                    else if (card.waitingFor.includes(i)) cell.classList.add('near-win');
+                    else if (nearWinIndices.has(i)) cell.classList.add('near-win');
                     cell.onclick = () => toggleMark(card.id, i);
                 }
                 if (i === 12) cell.innerText = "FREE";
                 else if (!isLocked) {
                     const input = document.createElement('input'); input.type = "number"; input.value = val;
-                    input.oninput = (e) => { card.data[i] = e.target.value; save(); };
-                    cell.appendChild(input);
+                    input.oninput = (e) => { card.data[i] = e.target.value; save(); }; cell.appendChild(input);
                 } else cell.innerText = val;
                 gridEl.appendChild(cell);
             });
-            gridWrapper.appendChild(gridEl);
-            cardEl.appendChild(gridWrapper);
-            container.appendChild(cardEl);
+            gridWrapper.appendChild(gridEl); cardEl.appendChild(gridWrapper); container.appendChild(cardEl);
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), marks: [], winPattern: null, waitingFor: [], blackoutToGo: 24 }); save(); render(); }
-    function deleteCard(id) { if(confirm("Delete Card?")){ cards=cards.filter(c=>c.id!==id); save(); render(); } }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill("") }); save(); render(); }
+    function deleteCard(id) { cards=cards.filter(c=>c.id!==id); save(); render(); }
     function autoFill(id) {
-        const card = cards.find(c => c.id === id);
-        const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+        const card = cards.find(c => c.id === id); const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
         for (let col = 0; col < 5; col++) {
             let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]).sort(() => Math.random() - 0.5);
             for (let row = 0; row < 5; row++) { if (row === 2 && col === 2) continue; card.data[row * 5 + col] = pool[row]; }
         }
         save(); render();
     }
-    function handleForceEdit() { if(confirm("Force Setup Mode?")) setPlayMode(false); }
-    function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display = 'flex'; generateQRs(); } }
+    function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display = 'flex'; document.getElementById('menuContent').style.display = 'none'; generateQRs(); } }
     function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
     function generateQRs() { document.getElementById("universalQR").innerHTML = ""; new QRCode(document.getElementById("universalQR"), { text: EDIT_SECRET, width: 180, height: 180 }); }
+    function handleForceEdit() { if(confirm("Force Setup Mode?")) { setPlayMode(false); closeAdmin(); } }
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => {
-            if (text === EDIT_SECRET) { setPlayMode(false); stopScanner(); }
-        }).catch(err => alert("Scanner Error: " + err));
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => { if (text === EDIT_SECRET) { setPlayMode(false); stopScanner(); } });
     }
     function stopScanner() { if(html5QrCode) html5QrCode.stop().then(()=>document.getElementById('scanner-container').style.display='none'); }
 
     if(cards.length === 0) addCard();
     render();
+    if(isLocked) renderCallerGrid();
 </script>
 </body>
 </html>
