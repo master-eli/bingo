@@ -20,7 +20,6 @@
         .caller-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; margin-bottom: 12px; }
         .caller-ball { aspect-ratio: 1/1; border: 1px solid #455a64; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #34495e; cursor: pointer; font-size: 0.7rem; color: #bdc3c7; transition: all 0.2s; }
         
-        /* New Conditional Colors */
         .caller-ball.active-hit { background: var(--success); color: white; border-color: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.4); }
         .caller-ball.active-miss { background: var(--danger); color: white; border-color: #c0392b; opacity: 0.8; }
 
@@ -31,7 +30,8 @@
         @media (min-width: 768px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
 
         .bingo-card { background: white; padding: 8px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #444; position: relative; transition: all 0.3s ease; }
-        .winner { border: 3px solid var(--win-gold); transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+        .bingo-card.custom-colored { border-color: var(--card-color); }
+        .winner { border: 3px solid var(--win-gold) !important; transform: scale(1.02); z-index: 10; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
         .win-badge { display: none; text-align: center; font-weight: 900; padding: 2px; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
         .winner .win-badge.bingo { display: block; background: var(--win-gold); color: black; }
         .winner.winner-blackout .win-badge.blackout { display: block; background: var(--dark); color: white; }
@@ -40,21 +40,31 @@
 
         .grid-wrapper { position: relative; width: 100%; }
         .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
+        
+        /* THEME MATCHED GRID BORDERS */
+        .custom-colored .bingo-grid { background: var(--card-color); border-color: var(--card-color); }
+
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
         .winner:not(.winner-blackout) .strike-svg { display: block; }
 
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
+        .custom-colored .letter-header { color: var(--card-color); }
+        
         .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); overflow: hidden; touch-action: manipulation; }
+        .custom-colored .cell:not(.free-slot) { color: var(--card-color); }
         
         .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
+        .custom-colored.locked .cell.marked { background-color: var(--card-color) !important; color: white !important; }
+        
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
-        .locked .cell.near-win:not(.marked) { color: var(--warning); }
+        .locked .cell.near-win:not(.marked) { color: var(--warning) !important; }
         .locked .cell.near-win:not(.marked)::before { content: ""; position: absolute; width: 75%; height: 75%; border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite; }
 
         @keyframes pulse { 0%, 100% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
 
-        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; }
+        .cell input { width: 100%; height: 100%; border: none; text-align: center; font-weight: bold; outline: none; background: transparent; font-size: inherit; appearance: textfield; padding: 0; color: inherit; }
         .free-slot { background: #fff9db; font-size: 0.55rem; color: #f08c00; text-align: center; font-weight: 900; }
+        .custom-colored .free-slot { color: var(--card-color); }
 
         button { padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
         .btn-stack { display: flex; flex-direction: column; gap: 10px; }
@@ -67,6 +77,8 @@
         #scanner-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
         #adminPanel { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: white; }
         #reader { width: 300px; max-width: 90%; background: white; border-radius: 8px; overflow: hidden; }
+        
+        .color-picker-input { width: 24px; height: 24px; padding: 0; border: none; background: transparent; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -175,7 +187,6 @@
         document.getElementById('menuContent').style.display = 'none';
     }
 
-    // New Helper: Check if a number exists on any active card
     function numberExistsInCards(num) {
         return cards.some(card => card.data.some(val => Number(val) === num));
     }
@@ -206,7 +217,6 @@
             const isCalled = calledBalls.includes(i);
             const exists = numberExistsInCards(i);
             
-            // Apply logic for hits vs misses
             if (isCalled) {
                 ball.className = `caller-ball ${exists ? 'active-hit' : 'active-miss'}`;
             } else {
@@ -295,9 +305,22 @@
             const cardEl = document.createElement('div');
             cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''} ${card.winPattern === 'blackout' ? 'winner-blackout' : ''}`;
             
+            if (card.color) {
+                cardEl.classList.add('custom-colored');
+                cardEl.style.setProperty('--card-color', card.color);
+            }
+
             let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
             if (isLocked && gameMode === 'blackout' && !card.winPattern) html += `<div class="to-go-counter">${Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length} TO GO</div>`;
-            if (!isLocked) html = `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><button style="background:#4a90e2; color:white; padding:4px 8px; font-size:0.6rem;" onclick="autoFill(${card.id})">AUTO</button><button style="background:var(--danger); color:white; padding:4px 8px; font-size:0.6rem;" onclick="deleteCard(${card.id})">✕</button></div>`;
+            if (!isLocked) {
+                html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <input type="color" class="color-picker-input" value="${card.color || '#444444'}" oninput="updateCardColor(${card.id}, this.value)">
+                        <button style="background:#4a90e2; color:white; padding:4px 8px; font-size:0.6rem;" onclick="autoFill(${card.id})">AUTO</button>
+                    </div>
+                    <button style="background:var(--danger); color:white; padding:4px 8px; font-size:0.6rem;" onclick="deleteCard(${card.id})">✕</button>
+                </div>`;
+            }
             
             cardEl.innerHTML = html;
             const gridWrapper = document.createElement('div'); gridWrapper.className = 'grid-wrapper';
@@ -332,8 +355,18 @@
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill("") }); save(); render(); }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), color: "#444444" }); save(); render(); }
     function deleteCard(id) { cards=cards.filter(c=>c.id!==id); save(); render(); }
+    
+    function updateCardColor(id, color) {
+        const card = cards.find(c => c.id === id);
+        if(card) {
+            card.color = color;
+            save();
+            window.requestAnimationFrame(render);
+        }
+    }
+
     function autoFill(id) {
         const card = cards.find(c => c.id === id); const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
         for (let col = 0; col < 5; col++) {
