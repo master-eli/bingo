@@ -10,16 +10,17 @@
         :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; }
         body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; padding-bottom: 80px; }
         
-        /* MINIMALIST MENU BUTTON */
         .menu-btn-fixed { position: fixed; top: 15px; right: 15px; z-index: 1000; width: 45px; height: 45px; border-radius: 50%; background: var(--dark); color: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        
-        #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; }
+        #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; max-height: 80vh; overflow-y: auto; }
 
-        /* DARK CALLER BOARD */
+        /* SET MANAGER STYLING */
+        .set-manager { margin-top: 15px; padding-top: 15px; border-top: 2px solid #eee; }
+        .set-item { display: flex; justify-content: space-between; align-items: center; background: #f1f3f5; padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 0.85rem; }
+        .set-actions button { padding: 4px 8px; font-size: 0.7rem; margin-left: 4px; }
+
         #caller-board-area { display: none; background: #2c3e50; border-radius: 12px; padding: 15px; margin-bottom: 25px; border: 1px solid #1a252f; box-shadow: inset 0 2px 10px rgba(0,0,0,0.3); margin-top: 10px; }
         .caller-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; margin-bottom: 12px; }
         .caller-ball { aspect-ratio: 1/1; border: 1px solid #455a64; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #34495e; cursor: pointer; font-size: 0.7rem; color: #bdc3c7; transition: all 0.2s; }
-        
         .caller-ball.active-hit { background: var(--success); color: white; border-color: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.4); }
         .caller-ball.active-miss { background: var(--danger); color: white; border-color: #c0392b; opacity: 0.8; }
 
@@ -40,8 +41,6 @@
 
         .grid-wrapper { position: relative; width: 100%; }
         .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
-        
-        /* THEME MATCHED GRID BORDERS */
         .custom-colored .bingo-grid { background: var(--card-color); border-color: var(--card-color); }
 
         .strike-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
@@ -55,7 +54,6 @@
         
         .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
         .custom-colored.locked .cell.marked { background-color: var(--card-color) !important; color: white !important; }
-        
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
         .locked .cell.near-win:not(.marked) { color: var(--warning) !important; }
         .locked .cell.near-win:not(.marked)::before { content: ""; position: absolute; width: 75%; height: 75%; border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite; }
@@ -110,6 +108,12 @@
             <button style="background:#e9ecef; color:#444; border:1px solid #adb5bd;" onclick="addCard()">+ Add Card</button>
             <button class="btn-play" onclick="setPlayMode(true)">▶ START GAME</button>
         </div>
+
+        <div class="set-manager">
+            <p style="margin:0 0 8px 0; font-weight:bold; font-size:0.8rem; color:#666;">SAVED CARD SETS</p>
+            <button onclick="saveCurrentSet()" style="width:100%; background:var(--primary); color:white; font-size:0.75rem; margin-bottom:10px;">💾 Save Current Layout</button>
+            <div id="savedSetsList"></div>
+        </div>
     </div>
     
     <div id="playButtons" style="display:none;" class="btn-stack">
@@ -137,6 +141,7 @@
     let isLocked = JSON.parse(localStorage.getItem('bingo_v2_lock')) || false;
     let gameMode = localStorage.getItem('bingo_v2_mode') || 'bingo';
     let calledBalls = JSON.parse(localStorage.getItem('bingo_v2_balls')) || [];
+    let customSets = JSON.parse(localStorage.getItem('bingo_v3_sets')) || {};
     let html5QrCode;
 
     const PATTERNS = [
@@ -150,19 +155,52 @@
         localStorage.setItem('bingo_v2_lock', isLocked);
         localStorage.setItem('bingo_v2_mode', gameMode);
         localStorage.setItem('bingo_v2_balls', JSON.stringify(calledBalls));
+        localStorage.setItem('bingo_v3_sets', JSON.stringify(customSets));
+    }
+
+    // --- SET MANAGEMENT ---
+    function saveCurrentSet() {
+        const name = prompt("Name this card set:");
+        if (name) {
+            customSets[name] = JSON.parse(JSON.stringify(cards));
+            save(); renderSets();
+        }
+    }
+
+    function loadSet(name) {
+        if (confirm(`Load "${name}"? Current unsaved layout will be lost.`)) {
+            cards = JSON.parse(JSON.stringify(customSets[name]));
+            save(); render(); toggleMenu();
+        }
+    }
+
+    function deleteSet(name) {
+        if (confirm(`Delete set "${name}"?`)) {
+            delete customSets[name];
+            save(); renderSets();
+        }
+    }
+
+    function renderSets() {
+        const list = document.getElementById('savedSetsList');
+        list.innerHTML = '';
+        Object.keys(customSets).forEach(name => {
+            const div = document.createElement('div');
+            div.className = 'set-item';
+            div.innerHTML = `<span>${name}</span><div class="set-actions"><button style="background:var(--success); color:white;" onclick="loadSet('${name}')">LOAD</button><button style="background:var(--danger); color:white;" onclick="deleteSet('${name}')">✕</button></div>`;
+            list.appendChild(div);
+        });
     }
 
     function toggleMenu() {
         const content = document.getElementById('menuContent');
         content.style.display = (content.style.display === 'block') ? 'none' : 'block';
+        if(content.style.display === 'block') renderSets();
     }
 
     function setPlayMode(state) {
-        if(state) {
-            gameMode = document.querySelector('input[name="gameMode"]:checked').value;
-        } else {
-            document.getElementById('caller-board-area').style.display = 'none';
-        }
+        if(state) gameMode = document.querySelector('input[name="gameMode"]:checked').value;
+        else document.getElementById('caller-board-area').style.display = 'none';
         isLocked = state;
         save(); render();
         document.getElementById('menuContent').style.display = 'none';
@@ -172,8 +210,7 @@
         if(confirm("End game and clear?")) {
             cards.forEach(c => { c.marks = []; c.winPattern = null; });
             calledBalls = [];
-            save(); render();
-            renderCallerGrid();
+            save(); render(); renderCallerGrid();
             document.getElementById('menuContent').style.display = 'none';
         }
     }
@@ -216,10 +253,8 @@
             const ball = document.createElement('div');
             const isCalled = calledBalls.includes(i);
             const exists = numberExistsInCards(i);
-            
-            if (isCalled) {
-                ball.className = `caller-ball ${exists ? 'active-hit' : 'active-miss'}`;
-            } else {
+            if (isCalled) ball.className = `caller-ball ${exists ? 'active-hit' : 'active-miss'}`;
+            else {
                 ball.className = `caller-ball`;
                 if (hotNumbers.has(i)) {
                     ball.style.borderColor = 'var(--win-gold)';
@@ -227,7 +262,6 @@
                     ball.style.color = 'var(--win-gold)';
                 }
             }
-
             ball.innerText = i;
             ball.onclick = () => toggleMasterBall(i);
             grid.appendChild(ball);
@@ -235,9 +269,8 @@
 
         cards.forEach((card, idx) => {
             let info = "";
-            if (card.winPattern) {
-                info = `<div class="win-list-item" style="border-left-color: var(--success)"><strong>Card ${idx+1}: WIN!</strong></div>`;
-            } else {
+            if (card.winPattern) info = `<div class="win-list-item" style="border-left-color: var(--success)"><strong>Card ${idx+1}: WIN!</strong></div>`;
+            else {
                 const marks = new Set(card.marks); marks.add(12);
                 if (gameMode === 'bingo') {
                     let paths = [];
@@ -304,11 +337,7 @@
 
             const cardEl = document.createElement('div');
             cardEl.className = `bingo-card ${card.winPattern ? 'winner' : ''} ${isLocked ? 'locked' : ''} ${card.winPattern === 'blackout' ? 'winner-blackout' : ''}`;
-            
-            if (card.color) {
-                cardEl.classList.add('custom-colored');
-                cardEl.style.setProperty('--card-color', card.color);
-            }
+            if (card.color) { cardEl.classList.add('custom-colored'); cardEl.style.setProperty('--card-color', card.color); }
 
             let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
             if (isLocked && gameMode === 'blackout' && !card.winPattern) html += `<div class="to-go-counter">${Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length} TO GO</div>`;
@@ -355,17 +384,9 @@
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), color: "#444444" }); save(); render(); }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), color: "#444444", marks: [] }); save(); render(); }
     function deleteCard(id) { cards=cards.filter(c=>c.id!==id); save(); render(); }
-    
-    function updateCardColor(id, color) {
-        const card = cards.find(c => c.id === id);
-        if(card) {
-            card.color = color;
-            save();
-            window.requestAnimationFrame(render);
-        }
-    }
+    function updateCardColor(id, color) { const card = cards.find(c => c.id === id); if(card) { card.color = color; save(); window.requestAnimationFrame(render); } }
 
     function autoFill(id) {
         const card = cards.find(c => c.id === id); const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
