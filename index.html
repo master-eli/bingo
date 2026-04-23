@@ -8,10 +8,49 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; --violet: #9b59b6; --light-blue: #3498db; }
-        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; padding-bottom: 80px; user-select: none; -webkit-user-select: none; }
+        body { 
+            font-family: system-ui, sans-serif; 
+            background: #f8f9fa; 
+            margin: 0; 
+            padding: 15px; 
+            padding-bottom: 100px; /* Increased from 80px to 100px */
+            user-select: none; 
+            -webkit-user-select: none; 
+        }
         
-        .menu-btn-fixed { position: fixed; top: 15px; right: 15px; z-index: 1000; width: 45px; height: 45px; border-radius: 50%; background: var(--dark); color: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; max-height: 80vh; overflow-y: auto; }
+        .menu-btn-fixed { 
+            position: fixed; 
+            bottom: 20px; /* Changed from top to bottom */
+            right: 15px; 
+            z-index: 1000; 
+            width: 50px; /* Slightly larger for easier tapping */
+            height: 50px; 
+            border-radius: 50%; 
+            background: var(--dark); 
+            color: white; 
+            border: none; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        #menuContent { 
+            display: none; 
+            position: fixed; 
+            bottom: 80px; /* Changed from top to bottom so it appears above the button */
+            right: 15px; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15); 
+            z-index: 999; 
+            border: 1px solid #dee2e6; 
+            min-width: 250px; 
+            max-height: 70vh; 
+            overflow-y: auto; 
+        }
 
         .set-manager { margin-top: 15px; padding-top: 15px; border-top: 2px solid #eee; }
         .set-item { display: flex; justify-content: space-between; align-items: center; background: #f1f3f5; padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 0.85rem; }
@@ -57,8 +96,8 @@
         .locked .cell.near-win:not(.marked) { color: var(--warning) !important; }
         .locked .cell.near-win:not(.marked)::before { content: ""; position: absolute; width: 75%; height: 75%; border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite; }
 
-        .cell.flagged { animation: adminGlow 2s infinite; color: var(--violet) !important; font-weight: 900; }
-        @keyframes adminGlow { 0%, 100% { box-shadow: inset 0 0 5px var(--violet); } 50% { box-shadow: inset 0 0 15px var(--light-blue); } }
+        .cell.flagged { animation: adminGlow 2s infinite; color: var(--card-color) !important; font-weight: 900; }
+        @keyframes adminGlow { 0%, 100% { box-shadow: inset 0 0 5px var(--card-color); } 50% { box-shadow: inset 0 0 5px var(--card-color); } }
 
         #scroll-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .cylinder-picker { background: #111; width: 160px; height: 250px; border-radius: 15px; overflow-y: scroll; scroll-snap-type: y mandatory; position: relative; border: 2px solid var(--violet); }
@@ -317,10 +356,10 @@
         recalculateAllMarks();
         save(); render();
         document.getElementById('menuContent').style.display = 'none';
-        if(state) {
-            document.getElementById('caller-board-area').style.display = 'block';
-            renderCallerGrid();
-        }
+        
+        // Updated logic: Only show board area if in play mode (state is true)
+        document.getElementById('caller-board-area').style.display = state ? 'block' : 'none';
+        if(state) renderCallerGrid();
     }
 
     function nextRound() {
@@ -579,10 +618,9 @@
         document.getElementById('adminPortalBtn').style.color = "var(--success)";
     }
     render();
-    if(isLocked) {
-        document.getElementById('caller-board-area').style.display = 'block';
-        renderCallerGrid();
-    }
+    // Updated logic: Ensure board visibility matches the lock state on load
+    document.getElementById('caller-board-area').style.display = isLocked ? 'block' : 'none';
+    if(isLocked) renderCallerGrid();
 </script>
 </body>
 </html>
