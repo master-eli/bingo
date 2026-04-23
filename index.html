@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bingo & Blackout Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; }
-        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; padding-bottom: 80px; }
+        :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --dark: #212529; --win-gold: #f1c40f; --violet: #9b59b6; --light-blue: #3498db; }
+        body { font-family: system-ui, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; padding-bottom: 80px; user-select: none; -webkit-user-select: none; }
         
         .menu-btn-fixed { position: fixed; top: 15px; right: 15px; z-index: 1000; width: 45px; height: 45px; border-radius: 50%; background: var(--dark); color: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; max-height: 80vh; overflow-y: auto; }
@@ -48,7 +48,7 @@
         .letter-header { background: #f1f3f5; text-align: center; font-weight: bold; font-size: 0.7rem; padding: 4px 0; color: var(--primary); }
         .custom-colored .letter-header { color: var(--card-color); }
         
-        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); overflow: hidden; touch-action: manipulation; }
+        .cell { aspect-ratio: 1/1; background: white; display: flex; align-items: center; justify-content: center; position: relative; font-weight: bold; font-size: clamp(0.75rem, 2.5vw, 1.1rem); overflow: hidden; touch-action: none; }
         .custom-colored .cell:not(.free-slot) { color: var(--card-color); }
         
         .locked .cell.marked { background-color: var(--success) !important; color: white !important; }
@@ -56,6 +56,16 @@
         .locked .cell.marked::after { content: ""; position: absolute; width: 70%; height: 70%; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
         .locked .cell.near-win:not(.marked) { color: var(--warning) !important; }
         .locked .cell.near-win:not(.marked)::before { content: ""; position: absolute; width: 75%; height: 75%; border: 3px dashed var(--warning); border-radius: 50%; animation: pulse 1.5s infinite; }
+
+        /* New Admin Advantage Styling */
+        .cell.flagged { animation: adminGlow 2s infinite; color: var(--violet) !important; font-weight: 900; }
+        @keyframes adminGlow { 0%, 100% { box-shadow: inset 0 0 5px var(--violet); } 50% { box-shadow: inset 0 0 15px var(--light-blue); } }
+
+        /* Scroll Cylinder Overlay */
+        #scroll-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .cylinder-picker { background: #111; width: 160px; height: 250px; border-radius: 15px; overflow-y: scroll; scroll-snap-type: y mandatory; position: relative; border: 2px solid var(--violet); }
+        .cylinder-item { height: 50px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.5rem; scroll-snap-align: center; cursor: pointer; }
+        .cylinder-center { position: absolute; top: 100px; width: 100%; height: 50px; border-top: 1px solid var(--violet); border-bottom: 1px solid var(--violet); background: rgba(155, 89, 182, 0.2); pointer-events: none; }
 
         @keyframes pulse { 0%, 100% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
 
@@ -80,6 +90,17 @@
 </head>
 <body>
 
+<div id="scroll-overlay">
+    <div style="text-align: center; width: 200px;">
+        <p style="color:white; margin-bottom:10px; font-weight:bold;">SWAP NUMBER</p>
+        <div style="position: relative;">
+            <div class="cylinder-picker" id="pickerContainer"></div>
+            <div class="cylinder-center"></div>
+        </div>
+        <button onclick="closeScroll()" style="margin-top:20px; background:var(--success); color:white; width:100%;">APPLY</button>
+    </div>
+</div>
+
 <div id="scanner-container">
     <div id="reader"></div>
     <button onclick="stopScanner()" style="margin-top: 20px; background: var(--danger); color: white;">Close Scanner</button>
@@ -91,7 +112,7 @@
         <button style="background:var(--danger); color:white;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
         <button id="recordingBtn" style="background:#555; color:white;" onclick="toggleRecording()">REC: OFF</button>
     </div>
-    <button style="background:var(--win-gold); color:black; margin-bottom: 15px; width: 200px;" onclick="addHotCard()">🔥 CREATE HOT CARD</button>
+    
     <div id="universalQR" style="background:white; padding:10px; border-radius:8px; margin-bottom: 20px;"></div>
     
     <div style="display:flex; gap:10px;">
@@ -153,6 +174,7 @@
     let ballHistory = JSON.parse(localStorage.getItem('bingo_v3_history')) || {};
     let isAdminLoggedIn = JSON.parse(localStorage.getItem('bingo_v3_admin_state')) || false;
     let html5QrCode;
+    let pressTimer;
 
     const PATTERNS = [
         {id:'r0', p:[0,1,2,3,4]}, {id:'r1', p:[5,6,7,8,9]}, {id:'r2', p:[10,11,12,13,14]}, {id:'r3', p:[15,16,17,18,19]}, {id:'r4', p:[20,21,22,23,24]},
@@ -171,42 +193,71 @@
         localStorage.setItem('bingo_v3_admin_state', isAdminLoggedIn);
     }
 
+    // --- Admin Press Handlers ---
+    function handleCellTouchStart(e, cardId, idx) {
+        if (!isLocked || idx === 12) return;
+        let start = Date.now();
+        pressTimer = setTimeout(() => {
+            if (isAdminLoggedIn) {
+                const diff = Date.now() - start;
+                if (diff >= 1000) openScroll(cardId, idx);
+                else toggleFlag(cardId, idx);
+            }
+        }, 500);
+    }
+
+    function handleCellTouchEnd(e, cardId, idx) {
+        const duration = Date.now() - (pressTimer?._startTime || 0); // Logic handled via clearTimeout
+        clearTimeout(pressTimer);
+    }
+
+    function toggleFlag(cardId, index) {
+        const card = cards.find(c => c.id === cardId);
+        if(!card.flags) card.flags = [];
+        const col = index % 5;
+        card.flags = card.flags.filter(idx => idx % 5 !== col); // 1 per column
+        if (!card.flags.includes(index)) card.flags.push(index);
+        save(); render();
+    }
+
+    function openScroll(cardId, index) {
+        const col = index % 5;
+        const ranges = [[1,15],[16,30],[31,45],[46,60],[61,75]];
+        const [min, max] = ranges[col];
+        const container = document.getElementById('pickerContainer');
+        container.innerHTML = '';
+        for(let i=min; i<=max; i++) {
+            const div = document.createElement('div');
+            div.className = 'cylinder-item';
+            div.innerText = i;
+            div.onclick = () => { selectNewNumber(cardId, index, i); };
+            container.appendChild(div);
+        }
+        document.getElementById('scroll-overlay').style.display = 'flex';
+        container.scrollTop = 0;
+    }
+
+    function selectNewNumber(cardId, index, val) {
+        const card = cards.find(c => c.id === cardId);
+        const exists = card.data.indexOf(val);
+        if (exists !== -1) {
+            let temp = card.data[index];
+            card.data[index] = val;
+            card.data[exists] = temp;
+        } else {
+            card.data[index] = val;
+        }
+        closeScroll(); recalculateAllMarks();
+    }
+
+    function closeScroll() { document.getElementById('scroll-overlay').style.display='none'; }
+
+    // --- Existing Core Logic ---
     function toggleRecording() {
         isRecording = !isRecording;
         document.getElementById('recordingBtn').innerText = isRecording ? "REC: ON" : "REC: OFF";
         document.getElementById('recordingBtn').style.background = isRecording ? "var(--danger)" : "#555";
         save();
-    }
-
-    function adminShuffle(cardId) {
-        const card = cards.find(c => c.id === cardId);
-        if (!card) return;
-        const columns = [[], [], [], [], []];
-        card.data.forEach((val, i) => { columns[i % 5].push(val); });
-        columns.forEach(col => col.sort(() => Math.random() - 0.5));
-        const newData = Array(25);
-        for (let r = 0; r < 5; r++) {
-            for (let c = 0; c < 5; c++) {
-                newData[r * 5 + c] = (r === 2 && c === 2) ? "" : columns[c][r];
-            }
-        }
-        card.data = newData;
-        save(); render();
-    }
-
-    function addHotCard() {
-        const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
-        const hotData = Array(25).fill("");
-        for (let col = 0; col < 5; col++) {
-            let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]);
-            pool.sort((a, b) => (ballHistory[b] || 0) - (ballHistory[a] || 0) || Math.random() - 0.5);
-            for (let row = 0; row < 5; row++) {
-                if (row === 2 && col === 2) continue;
-                hotData[row * 5 + col] = pool[row];
-            }
-        }
-        cards.push({ id: Date.now(), data: hotData, color: "#f1c40f", marks: [] });
-        save(); render(); hideAdmin();
     }
 
     function openAdmin() { 
@@ -224,7 +275,7 @@
     function hideAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
 
     function logoutAdmin() {
-        if(confirm("Log out of Admin? Buttons will be hidden.")) {
+        if(confirm("Log out of Admin?")) {
             isAdminLoggedIn = false;
             document.getElementById('adminPanel').style.display = 'none';
             document.getElementById('adminPortalBtn').innerText = "Admin Panel";
@@ -239,7 +290,7 @@
     }
 
     function loadSet(name) {
-        if (confirm(`Load "${name}"?`)) { cards = JSON.parse(JSON.stringify(customSets[name])); save(); render(); toggleMenu(); }
+        if (confirm(`Load "${name}"?`)) { cards = JSON.parse(JSON.stringify(customSets[name])); recalculateAllMarks(); save(); render(); toggleMenu(); }
     }
 
     function deleteSet(name) {
@@ -248,6 +299,7 @@
 
     function renderSets() {
         const list = document.getElementById('savedSetsList');
+        if(!list) return;
         list.innerHTML = '';
         Object.keys(customSets).forEach(name => {
             const div = document.createElement('div');
@@ -266,6 +318,7 @@
     function setPlayMode(state) {
         if(state) gameMode = document.querySelector('input[name="gameMode"]:checked').value;
         isLocked = state;
+        recalculateAllMarks();
         save(); render();
         document.getElementById('menuContent').style.display = 'none';
         if(state) {
@@ -276,7 +329,7 @@
 
     function nextRound() {
         if(confirm("End game and clear?")) {
-            cards.forEach(c => { c.marks = []; c.winPattern = null; });
+            cards.forEach(c => { c.marks = []; c.winPattern = null; c.flags = []; });
             calledBalls = [];
             save(); render(); renderCallerGrid();
             document.getElementById('menuContent').style.display = 'none';
@@ -294,6 +347,16 @@
 
     function numberExistsInCards(num) {
         return cards.some(card => card.data.some(val => Number(val) === num));
+    }
+
+    function recalculateAllMarks() {
+        cards.forEach(card => {
+            card.marks = [];
+            card.data.forEach((val, i) => { 
+                if(i !== 12 && val !== "" && calledBalls.includes(Number(val))) card.marks.push(i); 
+            });
+            analyzeCard(card);
+        });
     }
 
     function renderCallerGrid() {
@@ -337,7 +400,6 @@
             grid.appendChild(ball);
         }
 
-        // RENDER LAST BALL STATUS LIST
         cards.forEach((card, idx) => {
             let info = "";
             if (card.winPattern) {
@@ -369,12 +431,27 @@
         } else {
             calledBalls.push(num);
             if (isRecording) ballHistory[num] = (ballHistory[num] || 0) + 1;
+            
+            // Magnet logic injection
+            cards.forEach(card => {
+                if (card.flags) {
+                    const colIdx = num <= 15 ? 0 : num <= 30 ? 1 : num <= 45 ? 2 : num <= 60 ? 3 : 4;
+                    const flagIdx = card.flags.find(f => f % 5 === colIdx);
+                    if (flagIdx !== undefined) {
+                        const existsAt = card.data.indexOf(num);
+                        if (existsAt !== -1) {
+                            let oldNum = card.data[flagIdx];
+                            card.data[flagIdx] = num;
+                            card.data[existsAt] = oldNum;
+                        } else {
+                            card.data[flagIdx] = num;
+                        }
+                        card.flags = card.flags.filter(f => f !== flagIdx);
+                    }
+                }
+            });
         }
-        cards.forEach(card => {
-            card.marks = [];
-            card.data.forEach((val, i) => { if(calledBalls.includes(Number(val))) card.marks.push(i); });
-            analyzeCard(card);
-        });
+        recalculateAllMarks();
         save(); render(); renderCallerGrid();
     }
 
@@ -386,11 +463,14 @@
         } else {
             if (Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length === 0) card.winPattern = 'blackout';
         }
+        if (card.winPattern) card.flags = [];
     }
 
     function toggleMark(cardId, cellIndex) {
         if (!isLocked || cellIndex === 12) return;
-        toggleMasterBall(Number(cards.find(c => c.id === cardId).data[cellIndex]));
+        const card = cards.find(c => c.id === cardId);
+        const val = Number(card.data[cellIndex]);
+        if (val > 0) toggleMasterBall(val);
     }
 
     function render() {
@@ -423,7 +503,6 @@
                     <div style="display:flex; gap:5px; align-items:center;">
                         <input type="color" class="color-picker-input" value="${card.color || '#444444'}" oninput="updateCardColor(${card.id}, this.value)">
                         <button style="background:#4a90e2; color:white; padding:4px 8px; font-size:0.6rem;" onclick="autoFill(${card.id})">AUTO</button>
-                        ${isAdminLoggedIn ? `<button style="background:var(--warning); color:white; padding:4px 8px; font-size:0.6rem;" onclick="adminShuffle(${card.id})">🔀 SHUFFLE</button>` : ''}
                     </div>
                     <button style="background:var(--danger); color:white; padding:4px 8px; font-size:0.6rem;" onclick="deleteCard(${card.id})">✕</button>
                 </div>`;
@@ -446,23 +525,32 @@
 
             card.data.forEach((val, i) => {
                 const cell = document.createElement('div'); cell.className = 'cell' + (i === 12 ? ' free-slot' : '');
-                if (isLocked) {
-                    if (card.marks.includes(i) || i === 12) cell.classList.add('marked');
+                
+                if (i === 12) {
+                    cell.innerText = "FREE";
+                    if (isLocked) cell.classList.add('marked');
+                } else if (isLocked) {
+                    if (card.marks.includes(i)) cell.classList.add('marked');
                     else if (nearWinIndices.has(i)) cell.classList.add('near-win');
+                    
+                    if (isAdminLoggedIn && card.flags?.includes(i)) cell.classList.add('flagged');
+                    
+                    cell.innerText = val;
+                    cell.onpointerdown = (e) => handleCellTouchStart(e, card.id, i);
+                    cell.onpointerup = (e) => { clearTimeout(pressTimer); };
                     cell.onclick = () => toggleMark(card.id, i);
-                }
-                if (i === 12) cell.innerText = "FREE";
-                else if (!isLocked) {
+                } else {
                     const input = document.createElement('input'); input.type = "number"; input.value = val;
-                    input.oninput = (e) => { card.data[i] = e.target.value; save(); }; cell.appendChild(input);
-                } else cell.innerText = val;
+                    input.oninput = (e) => { card.data[i] = e.target.value; save(); }; 
+                    cell.appendChild(input);
+                }
                 gridEl.appendChild(cell);
             });
             gridWrapper.appendChild(gridEl); cardEl.appendChild(gridWrapper); container.appendChild(cardEl);
         });
     }
 
-    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), color: "#444444", marks: [] }); save(); render(); }
+    function addCard() { cards.push({ id: Date.now(), data: Array(25).fill(""), color: "#444444", marks: [], flags: [] }); save(); render(); }
     function deleteCard(id) { cards=cards.filter(c=>c.id!==id); save(); render(); }
     function updateCardColor(id, color) { const card = cards.find(c => c.id === id); if(card) { card.color = color; save(); window.requestAnimationFrame(render); } }
 
@@ -472,6 +560,7 @@
             let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]).sort(() => Math.random() - 0.5);
             for (let row = 0; row < 5; row++) { if (row === 2 && col === 2) continue; card.data[row * 5 + col] = pool[row]; }
         }
+        recalculateAllMarks();
         save(); render();
     }
     
