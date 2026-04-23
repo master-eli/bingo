@@ -221,9 +221,7 @@
         } 
     }
 
-    function hideAdmin() { 
-        document.getElementById('adminPanel').style.display = 'none'; 
-    }
+    function hideAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
 
     function logoutAdmin() {
         if(confirm("Log out of Admin? Buttons will be hidden.")) {
@@ -267,10 +265,13 @@
 
     function setPlayMode(state) {
         if(state) gameMode = document.querySelector('input[name="gameMode"]:checked').value;
-        else document.getElementById('caller-board-area').style.display = 'none';
         isLocked = state;
         save(); render();
         document.getElementById('menuContent').style.display = 'none';
+        if(state) {
+            document.getElementById('caller-board-area').style.display = 'block';
+            renderCallerGrid();
+        }
     }
 
     function nextRound() {
@@ -291,11 +292,16 @@
         document.getElementById('menuContent').style.display = 'none';
     }
 
+    function numberExistsInCards(num) {
+        return cards.some(card => card.data.some(val => Number(val) === num));
+    }
+
     function renderCallerGrid() {
         const grid = document.getElementById('callerGridDisplay');
         const statusList = document.getElementById('callerStatusList');
         if(!grid) return;
         grid.innerHTML = ''; statusList.innerHTML = '';
+
         const hotNumbers = new Set();
         cards.forEach(card => {
             if (card.winPattern) return;
@@ -314,8 +320,11 @@
         for(let i=1; i<=75; i++) {
             const ball = document.createElement('div');
             const isCalled = calledBalls.includes(i);
-            if (isCalled) ball.className = `caller-ball active-hit`;
-            else {
+            const existsOnCard = numberExistsInCards(i);
+            
+            if (isCalled) {
+                ball.className = `caller-ball ${existsOnCard ? 'active-hit' : 'active-miss'}`;
+            } else {
                 ball.className = `caller-ball`;
                 if (hotNumbers.has(i)) {
                     ball.style.borderColor = 'var(--win-gold)';
@@ -327,6 +336,31 @@
             ball.onclick = () => toggleMasterBall(i);
             grid.appendChild(ball);
         }
+
+        // RENDER LAST BALL STATUS LIST
+        cards.forEach((card, idx) => {
+            let info = "";
+            if (card.winPattern) {
+                info = `<div class="win-list-item" style="border-left-color: var(--success)"><strong>Card ${idx+1}: WIN!</strong></div>`;
+            } else {
+                const marks = new Set(card.marks); marks.add(12);
+                if (gameMode === 'bingo') {
+                    let paths = [];
+                    PATTERNS.forEach(pat => {
+                        const missing = pat.p.filter(index => !marks.has(index));
+                        if (missing.length === 1) paths.push(`<b style="color:var(--win-gold)">${card.data[missing[0]]}</b>`);
+                    });
+                    if (paths.length > 0) info = `<div class="win-list-item"><strong>Card ${idx+1}:</strong> Needs [${[...new Set(paths)].join(', ')}]</div>`;
+                } else {
+                    const missing = Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx));
+                    if (missing.length <= 5) {
+                        const missingNums = missing.map(idx => `<b style="color:var(--danger)">${card.data[idx]}</b>`).join(', ');
+                        info = `<div class="win-list-item" style="border-left-color: var(--danger)"><strong>Card ${idx+1}:</strong> ${missing.length} left [${missingNums}]</div>`;
+                    }
+                }
+            }
+            statusList.innerHTML += info;
+        });
     }
 
     function toggleMasterBall(num) {
@@ -341,7 +375,7 @@
             card.data.forEach((val, i) => { if(calledBalls.includes(Number(val))) card.marks.push(i); });
             analyzeCard(card);
         });
-        save(); render(); if(document.getElementById('caller-board-area').style.display === 'block') renderCallerGrid();
+        save(); render(); renderCallerGrid();
     }
 
     function analyzeCard(card) {
@@ -456,7 +490,10 @@
         document.getElementById('adminPortalBtn').style.color = "var(--success)";
     }
     render();
-    if(isLocked) renderCallerGrid();
+    if(isLocked) {
+        document.getElementById('caller-board-area').style.display = 'block';
+        renderCallerGrid();
+    }
 </script>
 </body>
 </html>
