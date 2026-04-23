@@ -13,7 +13,6 @@
         .menu-btn-fixed { position: fixed; top: 15px; right: 15px; z-index: 1000; width: 45px; height: 45px; border-radius: 50%; background: var(--dark); color: white; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         #menuContent { display: none; position: fixed; top: 70px; right: 15px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 999; border: 1px solid #dee2e6; min-width: 250px; max-height: 80vh; overflow-y: auto; }
 
-        /* SET MANAGER STYLING */
         .set-manager { margin-top: 15px; padding-top: 15px; border-top: 2px solid #eee; }
         .set-item { display: flex; justify-content: space-between; align-items: center; background: #f1f3f5; padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 0.85rem; }
         .set-actions button { padding: 4px 8px; font-size: 0.7rem; margin-left: 4px; }
@@ -88,9 +87,17 @@
 
 <div id="adminPanel">
     <h3 style="margin:0; color:var(--warning)">HOST TOOLS</h3>
-    <button style="background:var(--danger); color:white; padding:15px; width:200px; margin: 20px 0;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
+    <div style="display: flex; gap: 10px; margin: 15px 0;">
+        <button style="background:var(--danger); color:white;" onclick="handleForceEdit()">FORCE SETUP MODE</button>
+        <button id="recordingBtn" style="background:#555; color:white;" onclick="toggleRecording()">REC: OFF</button>
+    </div>
+    <button style="background:var(--win-gold); color:black; margin-bottom: 15px; width: 200px;" onclick="addHotCard()">🔥 CREATE HOT CARD</button>
     <div id="universalQR" style="background:white; padding:10px; border-radius:8px; margin-bottom: 20px;"></div>
-    <button onclick="closeAdmin()" style="background:#444; color:white;">Hide Panel</button>
+    
+    <div style="display:flex; gap:10px;">
+        <button onclick="hideAdmin()" style="background:#444; color:white;">Hide Panel</button>
+        <button onclick="logoutAdmin()" style="background:var(--danger); color:white;">Log Out</button>
+    </div>
 </div>
 
 <button class="menu-btn-fixed" onclick="toggleMenu()">☰</button>
@@ -123,7 +130,7 @@
     </div>
 
     <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; text-align: center;">
-        <button onclick="openAdmin()" style="background: transparent; color: #ced4da; font-size: 0.7rem; border: none; cursor: pointer;">Admin Panel</button>
+        <button id="adminPortalBtn" onclick="openAdmin()" style="background: transparent; color: #ced4da; font-size: 0.7rem; border: none; cursor: pointer;">Admin Panel</button>
     </div>
 </div>
 
@@ -142,6 +149,9 @@
     let gameMode = localStorage.getItem('bingo_v2_mode') || 'bingo';
     let calledBalls = JSON.parse(localStorage.getItem('bingo_v2_balls')) || [];
     let customSets = JSON.parse(localStorage.getItem('bingo_v3_sets')) || {};
+    let isRecording = JSON.parse(localStorage.getItem('bingo_v3_recording')) || false;
+    let ballHistory = JSON.parse(localStorage.getItem('bingo_v3_history')) || {};
+    let isAdminLoggedIn = JSON.parse(localStorage.getItem('bingo_v3_admin_state')) || false;
     let html5QrCode;
 
     const PATTERNS = [
@@ -156,29 +166,86 @@
         localStorage.setItem('bingo_v2_mode', gameMode);
         localStorage.setItem('bingo_v2_balls', JSON.stringify(calledBalls));
         localStorage.setItem('bingo_v3_sets', JSON.stringify(customSets));
+        localStorage.setItem('bingo_v3_recording', isRecording);
+        localStorage.setItem('bingo_v3_history', JSON.stringify(ballHistory));
+        localStorage.setItem('bingo_v3_admin_state', isAdminLoggedIn);
     }
 
-    // --- SET MANAGEMENT ---
+    function toggleRecording() {
+        isRecording = !isRecording;
+        document.getElementById('recordingBtn').innerText = isRecording ? "REC: ON" : "REC: OFF";
+        document.getElementById('recordingBtn').style.background = isRecording ? "var(--danger)" : "#555";
+        save();
+    }
+
+    function adminShuffle(cardId) {
+        const card = cards.find(c => c.id === cardId);
+        if (!card) return;
+        const columns = [[], [], [], [], []];
+        card.data.forEach((val, i) => { columns[i % 5].push(val); });
+        columns.forEach(col => col.sort(() => Math.random() - 0.5));
+        const newData = Array(25);
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                newData[r * 5 + c] = (r === 2 && c === 2) ? "" : columns[c][r];
+            }
+        }
+        card.data = newData;
+        save(); render();
+    }
+
+    function addHotCard() {
+        const ranges = [[1,15], [16,30], [31,45], [46,60], [61,75]];
+        const hotData = Array(25).fill("");
+        for (let col = 0; col < 5; col++) {
+            let pool = Array.from({length: 15}, (_, i) => i + ranges[col][0]);
+            pool.sort((a, b) => (ballHistory[b] || 0) - (ballHistory[a] || 0) || Math.random() - 0.5);
+            for (let row = 0; row < 5; row++) {
+                if (row === 2 && col === 2) continue;
+                hotData[row * 5 + col] = pool[row];
+            }
+        }
+        cards.push({ id: Date.now(), data: hotData, color: "#f1c40f", marks: [] });
+        save(); render(); hideAdmin();
+    }
+
+    function openAdmin() { 
+        if (isAdminLoggedIn || prompt("Admin Pass:") === ADMIN_PASS) { 
+            isAdminLoggedIn = true;
+            document.getElementById('adminPanel').style.display = 'flex'; 
+            document.getElementById('menuContent').style.display = 'none'; 
+            document.getElementById('adminPortalBtn').innerText = "Admin Panel (Active)";
+            document.getElementById('adminPortalBtn').style.color = "var(--success)";
+            generateQRs(); 
+            save(); render();
+        } 
+    }
+
+    function hideAdmin() { 
+        document.getElementById('adminPanel').style.display = 'none'; 
+    }
+
+    function logoutAdmin() {
+        if(confirm("Log out of Admin? Buttons will be hidden.")) {
+            isAdminLoggedIn = false;
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('adminPortalBtn').innerText = "Admin Panel";
+            document.getElementById('adminPortalBtn').style.color = "#ced4da";
+            save(); render();
+        }
+    }
+
     function saveCurrentSet() {
         const name = prompt("Name this card set:");
-        if (name) {
-            customSets[name] = JSON.parse(JSON.stringify(cards));
-            save(); renderSets();
-        }
+        if (name) { customSets[name] = JSON.parse(JSON.stringify(cards)); save(); renderSets(); }
     }
 
     function loadSet(name) {
-        if (confirm(`Load "${name}"? Current unsaved layout will be lost.`)) {
-            cards = JSON.parse(JSON.stringify(customSets[name]));
-            save(); render(); toggleMenu();
-        }
+        if (confirm(`Load "${name}"?`)) { cards = JSON.parse(JSON.stringify(customSets[name])); save(); render(); toggleMenu(); }
     }
 
     function deleteSet(name) {
-        if (confirm(`Delete set "${name}"?`)) {
-            delete customSets[name];
-            save(); renderSets();
-        }
+        if (confirm(`Delete set "${name}"?`)) { delete customSets[name]; save(); renderSets(); }
     }
 
     function renderSets() {
@@ -224,16 +291,11 @@
         document.getElementById('menuContent').style.display = 'none';
     }
 
-    function numberExistsInCards(num) {
-        return cards.some(card => card.data.some(val => Number(val) === num));
-    }
-
     function renderCallerGrid() {
         const grid = document.getElementById('callerGridDisplay');
         const statusList = document.getElementById('callerStatusList');
         if(!grid) return;
         grid.innerHTML = ''; statusList.innerHTML = '';
-
         const hotNumbers = new Set();
         cards.forEach(card => {
             if (card.winPattern) return;
@@ -252,8 +314,7 @@
         for(let i=1; i<=75; i++) {
             const ball = document.createElement('div');
             const isCalled = calledBalls.includes(i);
-            const exists = numberExistsInCards(i);
-            if (isCalled) ball.className = `caller-ball ${exists ? 'active-hit' : 'active-miss'}`;
+            if (isCalled) ball.className = `caller-ball active-hit`;
             else {
                 ball.className = `caller-ball`;
                 if (hotNumbers.has(i)) {
@@ -266,40 +327,21 @@
             ball.onclick = () => toggleMasterBall(i);
             grid.appendChild(ball);
         }
-
-        cards.forEach((card, idx) => {
-            let info = "";
-            if (card.winPattern) info = `<div class="win-list-item" style="border-left-color: var(--success)"><strong>Card ${idx+1}: WIN!</strong></div>`;
-            else {
-                const marks = new Set(card.marks); marks.add(12);
-                if (gameMode === 'bingo') {
-                    let paths = [];
-                    PATTERNS.forEach(pat => {
-                        const missing = pat.p.filter(index => !marks.has(index));
-                        if (missing.length === 1) paths.push(`<b style="color:var(--win-gold)">${card.data[missing[0]]}</b>`);
-                    });
-                    if (paths.length > 0) info = `<div class="win-list-item"><strong>Card ${idx+1}:</strong> Needs [${[...new Set(paths)].join(', ')}]</div>`;
-                } else {
-                    const missing = Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx));
-                    if (missing.length <= 5) {
-                        const missingNums = missing.map(idx => `<b style="color:var(--danger)">${card.data[idx]}</b>`).join(', ');
-                        info = `<div class="win-list-item" style="border-left-color: var(--danger)"><strong>Card ${idx+1}:</strong> ${missing.length} left [${missingNums}]</div>`;
-                    }
-                }
-            }
-            statusList.innerHTML += info;
-        });
     }
 
     function toggleMasterBall(num) {
-        if(calledBalls.includes(num)) calledBalls = calledBalls.filter(b => b !== num);
-        else calledBalls.push(num);
+        if(calledBalls.includes(num)) {
+            calledBalls = calledBalls.filter(b => b !== num);
+        } else {
+            calledBalls.push(num);
+            if (isRecording) ballHistory[num] = (ballHistory[num] || 0) + 1;
+        }
         cards.forEach(card => {
             card.marks = [];
             card.data.forEach((val, i) => { if(calledBalls.includes(Number(val))) card.marks.push(i); });
             analyzeCard(card);
         });
-        save(); render(); renderCallerGrid();
+        save(); render(); if(document.getElementById('caller-board-area').style.display === 'block') renderCallerGrid();
     }
 
     function analyzeCard(card) {
@@ -324,8 +366,8 @@
         container.innerHTML = '';
 
         cards.forEach((card) => {
-            const nearWinIndices = new Set();
             const marks = new Set(card.marks); marks.add(12);
+            const nearWinIndices = new Set();
             if (isLocked && !card.winPattern) {
                 if (gameMode === 'bingo') {
                     PATTERNS.forEach(pat => { if (pat.p.filter(idx => !marks.has(idx)).length === 1) nearWinIndices.add(pat.p.find(idx => !marks.has(idx))); });
@@ -341,11 +383,13 @@
 
             let html = `<div class="win-badge bingo">BINGO!</div><div class="win-badge blackout">BLACKOUT!</div>`;
             if (isLocked && gameMode === 'blackout' && !card.winPattern) html += `<div class="to-go-counter">${Array.from({length: 25}, (_, i) => i).filter(idx => idx !== 12 && !marks.has(idx)).length} TO GO</div>`;
+            
             if (!isLocked) {
                 html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                     <div style="display:flex; gap:5px; align-items:center;">
                         <input type="color" class="color-picker-input" value="${card.color || '#444444'}" oninput="updateCardColor(${card.id}, this.value)">
                         <button style="background:#4a90e2; color:white; padding:4px 8px; font-size:0.6rem;" onclick="autoFill(${card.id})">AUTO</button>
+                        ${isAdminLoggedIn ? `<button style="background:var(--warning); color:white; padding:4px 8px; font-size:0.6rem;" onclick="adminShuffle(${card.id})">🔀 SHUFFLE</button>` : ''}
                     </div>
                     <button style="background:var(--danger); color:white; padding:4px 8px; font-size:0.6rem;" onclick="deleteCard(${card.id})">✕</button>
                 </div>`;
@@ -396,10 +440,9 @@
         }
         save(); render();
     }
-    function openAdmin() { if (prompt("Admin Pass:") === ADMIN_PASS) { document.getElementById('adminPanel').style.display = 'flex'; document.getElementById('menuContent').style.display = 'none'; generateQRs(); } }
-    function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
+    
     function generateQRs() { document.getElementById("universalQR").innerHTML = ""; new QRCode(document.getElementById("universalQR"), { text: EDIT_SECRET, width: 180, height: 180 }); }
-    function handleForceEdit() { if(confirm("Force Setup Mode?")) { setPlayMode(false); closeAdmin(); } }
+    function handleForceEdit() { if(confirm("Force Setup Mode?")) { setPlayMode(false); hideAdmin(); } }
     function startScanner() {
         document.getElementById('scanner-container').style.display = 'flex';
         html5QrCode = new Html5Qrcode("reader");
@@ -408,6 +451,10 @@
     function stopScanner() { if(html5QrCode) html5QrCode.stop().then(()=>document.getElementById('scanner-container').style.display='none'); }
 
     if(cards.length === 0) addCard();
+    if(isAdminLoggedIn) {
+        document.getElementById('adminPortalBtn').innerText = "Admin Panel (Active)";
+        document.getElementById('adminPortalBtn').style.color = "var(--success)";
+    }
     render();
     if(isLocked) renderCallerGrid();
 </script>
